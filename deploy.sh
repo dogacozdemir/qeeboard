@@ -20,7 +20,7 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 # Project directory
-PROJECT_DIR="/home/cloudpanel/htdocs/qeeboard"
+PROJECT_DIR="/home/qeeboard/htdocs/www.qeeboard.com"
 cd "$PROJECT_DIR" || exit 1
 
 echo -e "${GREEN}✓${NC} Project directory: $PROJECT_DIR"

@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'qeeboard-backend',
     script: './backend/dist/server.js',
-    cwd: '/home/cloudpanel/htdocs/qeeboard',
+    cwd: '/home/qeeboard/htdocs/www.qeeboard.com',
     instances: 1,
     exec_mode: 'fork',
     env: {

@@ -44,24 +44,41 @@ cat /home/cloudpanel/htdocs/*/wp-config.php | grep DB_
 
 ### 1. Dosyaları VPS'e Yükleme
 
+**Site Kök Dizini: `/home/qeeboard/htdocs/www.qeeboard.com`**
+
 **Yöntem 1: Git ile (Önerilen)**
+
+**Eğer dizin boşsa:**
 ```bash
-# VPS'de proje klasörüne gidin
-cd /home/cloudpanel/htdocs/
-git clone <your-repo-url> qeeboard
-cd qeeboard
+cd /home/qeeboard/htdocs/www.qeeboard.com
+git clone https://github.com/dogacozdemir/qeeboard.git .
+```
+
+**Eğer dizin yoksa:**
+```bash
+mkdir -p /home/qeeboard/htdocs/www.qeeboard.com
+cd /home/qeeboard/htdocs/www.qeeboard.com
+git clone https://github.com/dogacozdemir/qeeboard.git .
+```
+
+**Eğer dizinde mevcut dosyalar varsa (güvenli yöntem):**
+```bash
+cd /home/qeeboard/htdocs/
+mv www.qeeboard.com www.qeeboard.com.backup 2>/dev/null || true
+git clone https://github.com/dogacozdemir/qeeboard.git www.qeeboard.com
+cd www.qeeboard.com
 ```
 
 **Yöntem 2: SFTP/SCP ile**
 ```bash
 # Local makinenizden
-scp -r /Users/uygardogacozdemir/Desktop/qeeboard.com user@your-vps-ip:/home/cloudpanel/htdocs/
+scp -r /Users/uygardogacozdemir/Desktop/qeeboard.com user@your-vps-ip:/home/qeeboard/htdocs/www.qeeboard.com
 ```
 
 ### 2. Backend Kurulumu
 
 ```bash
-cd /home/cloudpanel/htdocs/qeeboard/backend
+cd /home/qeeboard/htdocs/www.qeeboard.com/backend
 
 # .env dosyasını oluşturun
 cp .env.example .env
@@ -90,7 +107,7 @@ npm run build
 ### 3. Frontend Kurulumu
 
 ```bash
-cd /home/cloudpanel/htdocs/qeeboard/frontend
+cd /home/qeeboard/htdocs/www.qeeboard.com/frontend
 
 # .env dosyasını oluşturun
 cp .env.example .env
@@ -109,7 +126,7 @@ npm run build
 ### 4. Designer Kurulumu
 
 ```bash
-cd /home/cloudpanel/htdocs/qeeboard/designer
+cd /home/qeeboard/htdocs/www.qeeboard.com/designer
 
 # .env dosyasını oluşturun
 cp .env.example .env
@@ -132,7 +149,7 @@ npm run build
 npm install -g pm2
 
 # PM2 ecosystem dosyasını kullanarak başlat
-cd /home/cloudpanel/htdocs/qeeboard
+cd /home/qeeboard/htdocs/www.qeeboard.com
 pm2 start ecosystem.config.js
 
 # PM2'yi sistem başlangıcında çalıştır
@@ -155,20 +172,14 @@ Nginx config içeriği için `nginx.conf` dosyasına bakın.
 
 ### 7. Static Files için Symbolic Links
 
-```bash
-# Frontend static files
-ln -s /home/cloudpanel/htdocs/qeeboard/frontend/dist /home/cloudpanel/htdocs/qeeboard/public/frontend
-
-# Designer static files  
-ln -s /home/cloudpanel/htdocs/qeeboard/designer/dist /home/cloudpanel/htdocs/qeeboard/public/designer
-```
+**Not:** Path bazlı routing kullanıldığı için symbolic link'e gerek yok. Nginx direkt dist klasörlerine yönlendirecek.
 
 ### 8. Uploads Klasörü İzinleri
 
 ```bash
 # Preview images için
-mkdir -p /home/cloudpanel/htdocs/qeeboard/backend/uploads/previews
-chmod -R 755 /home/cloudpanel/htdocs/qeeboard/backend/uploads
+mkdir -p /home/qeeboard/htdocs/www.qeeboard.com/backend/uploads/previews
+chmod -R 755 /home/qeeboard/htdocs/www.qeeboard.com/backend/uploads
 ```
 
 ### 9. SSL Sertifikası (Let's Encrypt)
@@ -184,7 +195,7 @@ CloudPanel'de site oluşturduktan sonra:
 ## Güncelleme İşlemi
 
 ```bash
-cd /home/cloudpanel/htdocs/qeeboard
+cd /home/qeeboard/htdocs/www.qeeboard.com
 
 # Backend güncelleme
 cd backend
