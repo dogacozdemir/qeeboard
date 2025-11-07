@@ -381,4 +381,3 @@ router.post('/:id/preview', async (req, res) => {
 })
 
 export { router as configRoutes }
-
