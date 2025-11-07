@@ -159,7 +159,12 @@ pm2 save
 
 ### 6. Nginx Configuration (Path Bazlı Routing)
 
-**ÖNEMLİ:** CloudPanel'de site oluştururken port ayarını **80/443** yapın veya boş bırakın. **5173 veya başka bir port kullanmayın** - bu sadece development için.
+**NOT:** CloudPanel'de site oluştururken port ayarı zorunluysa ve 80/443 zaten kullanılıyorsa, herhangi bir port (örn: 5173) kullanabilirsiniz. Bu port sadece CloudPanel'in referansı içindir - gerçek çalışma portları:
+- **Nginx**: 80/443 (zaten çalışıyor)
+- **Backend**: 5001 (PM2 ile çalışacak)
+- **Frontend/Designer**: Static files (Nginx serve edecek)
+
+Port ayarı site çalışmasını engellemez çünkü routing Nginx config'de yapılacak.
 
 CloudPanel'de site oluşturduktan sonra, Nginx config dosyasını düzenleyin:
 
