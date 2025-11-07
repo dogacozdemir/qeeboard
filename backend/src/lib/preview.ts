@@ -70,7 +70,8 @@ const iconMap: Record<string, any> = {
 }
 
 // Use __dirname to get the backend directory, not process.cwd() which might be the project root
-const BACKEND_DIR = path.resolve(__dirname, '..')
+// __dirname in dist will be: dist/lib, so we need to go up 2 levels to get to backend directory
+const BACKEND_DIR = path.resolve(__dirname, '../..')
 const PREVIEW_DIR = path.join(BACKEND_DIR, 'uploads', 'previews')
 const PREVIEW_BASE_URL = process.env.PREVIEW_BASE_URL || '/api/previews'
 
