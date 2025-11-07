@@ -69,7 +69,9 @@ const iconMap: Record<string, any> = {
   'cloudRain': faCloudRain, 'shoppingCart': faShoppingCart, 'creditCard': faCreditCard
 }
 
-const PREVIEW_DIR = path.join(process.cwd(), 'uploads', 'previews')
+// Use __dirname to get the backend directory, not process.cwd() which might be the project root
+const BACKEND_DIR = path.resolve(__dirname, '..')
+const PREVIEW_DIR = path.join(BACKEND_DIR, 'uploads', 'previews')
 const PREVIEW_BASE_URL = process.env.PREVIEW_BASE_URL || '/api/previews'
 
 // Ensure preview directory exists
