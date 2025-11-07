@@ -2,41 +2,57 @@
 
 ## Ön Hazırlık
 
-### 1. Database Connection String'i Öğrenme
+### 1. PostgreSQL Database Oluşturma (Manuel)
 
-CloudPanel'de PostgreSQL database oluşturduğunuzda, connection string şu formatta olacaktır:
+CloudPanel'de PostgreSQL database oluşturma seçeneği yoksa, manuel olarak oluşturun:
 
-```
-postgresql://username:password@localhost:5432/database_name
-```
+**Yöntem 1: Otomatik Script (Önerilen)**
 
-**CloudPanel'de bulma yöntemleri:**
-
-**Yöntem 1: CloudPanel UI**
-1. CloudPanel'e giriş yapın
-2. "Databases" bölümüne gidin
-3. Oluşturduğunuz PostgreSQL database'e tıklayın
-4. Connection details bölümünde connection string gösterilir
-
-**Yöntem 2: SSH ile kontrol**
 ```bash
-# CloudPanel genelde şu formatta tutar:
-# Database name: qeeboard_db (veya sizin verdiğiniz isim)
-# Username: qeeboard_user (veya sizin verdiğiniz isim)
-# Password: CloudPanel'de gösterilen password
-# Host: localhost (veya 127.0.0.1)
-# Port: 5432 (PostgreSQL default)
-
-# Connection string formatı:
-postgresql://qeeboard_user:your_password@localhost:5432/qeeboard_db
+cd /home/qeeboard/htdocs/www.qeeboard.com
+sudo ./setup-database.sh
 ```
 
-**Yöntem 3: CloudPanel config dosyası**
+Script sizden şifre isteyecek ve database'i otomatik oluşturacak.
+
+**Yöntem 2: Manuel Komutlar**
+
 ```bash
-# SSH ile sunucuya bağlanın
-cat /home/cloudpanel/htdocs/*/wp-config.php | grep DB_
-# veya CloudPanel'in database config dosyasını kontrol edin
+# PostgreSQL'e root/postgres kullanıcısı ile bağlanın
+sudo -u postgres psql
+# veya
+sudo su - postgres
+psql
 ```
+
+**PostgreSQL içinde komutlar:**
+
+```sql
+-- Database oluştur
+CREATE DATABASE qeeboard_db;
+
+-- Kullanıcı oluştur (eğer yoksa)
+CREATE USER qeeboard_user WITH PASSWORD 'güçlü_bir_şifre_buraya';
+
+-- Kullanıcıya database üzerinde tüm yetkileri ver
+GRANT ALL PRIVILEGES ON DATABASE qeeboard_db TO qeeboard_user;
+
+-- PostgreSQL 15+ için schema yetkisi de gerekli
+\c qeeboard_db
+GRANT ALL ON SCHEMA public TO qeeboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO qeeboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO qeeboard_user;
+
+-- Çıkış
+\q
+```
+
+**Connection String:**
+```
+postgresql://qeeboard_user:güçlü_bir_şifre_buraya@localhost:5432/qeeboard_db
+```
+
+**Not:** `qeeboard_db` ve `qeeboard_user` isimlerini istediğiniz gibi değiştirebilirsiniz. Şifreyi güçlü bir şifre ile değiştirmeyi unutmayın!
 
 ---
 
@@ -81,11 +97,10 @@ scp -r /Users/uygardogacozdemir/Desktop/qeeboard.com user@your-vps-ip:/home/qeeb
 cd /home/qeeboard/htdocs/www.qeeboard.com/backend
 
 # .env dosyasını oluşturun
-cp .env.example .env
 nano .env  # veya vi .env
 
 # .env dosyasına şunları ekleyin:
-# DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+# DATABASE_URL="postgresql://qeeboard_user:your_password@localhost:5432/qeeboard_db"
 # JWT_SECRET="your-super-secret-jwt-key-here-min-32-chars"
 # PORT=5001
 # NODE_ENV=production
@@ -97,12 +112,14 @@ npm install
 # Prisma client generate
 npm run db:generate
 
-# Database migrations
+# Database migrations (tabloları oluşturur)
 npm run db:deploy
 
 # Build
 npm run build
 ```
+
+**Önemli:** `npm run db:deploy` komutu Prisma migrations'ları çalıştırır ve database'de tüm tabloları oluşturur. Bu komut production için güvenlidir ve mevcut verileri silmez.
 
 ### 3. Frontend Kurulumu
 
