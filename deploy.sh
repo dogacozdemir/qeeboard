@@ -13,11 +13,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Check if running as root or with sudo
-if [ "$EUID" -eq 0 ]; then 
-    echo -e "${RED}Please do not run as root${NC}"
-    exit 1
-fi
+# Note: Script can be run as root or regular user
+# Some commands may require sudo for permissions
 
 # Project directory
 PROJECT_DIR="/home/qeeboard/htdocs/www.qeeboard.com"
