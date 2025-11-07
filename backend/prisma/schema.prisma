@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FULFILLED
+}
+
+enum AddressKind {
+  SHIPPING
+  BILLING
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  phone     String?
+  configs   KeyboardConfig[]
+  favorites ConfigFavorite[]
+  comments  ConfigComment[]
+  // Back-relations for analytics
+  colorUsages AnalyticsColorUsage[]
+  eventLogs   AnalyticsEventLog[]
+  listings   ConfigListing[]
+  carts      Cart[]
+  orders     Order[]
+  addresses  Address[]
+  savedColors UserSavedColor[]
+  createdAt DateTime  @default(now())
+}
+
+model KeyboardConfig {
+  id          Int              @id @default(autoincrement())
+  user        User             @relation(fields: [userId], references: [id])
+  userId      Int
+  name        String
+  description String?
+  layoutData  Json
+  previewUrl  String?
+  tags        ConfigTag[]
+  versions    ConfigVersion[]
+  favorites   ConfigFavorite[]
+  comments    ConfigComment[]
+  listings    ConfigListing[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ConfigVersion {
+  id          Int             @id @default(autoincrement())
+  config      KeyboardConfig  @relation(fields: [configId], references: [id])
+  configId    Int
+  versionName String?
+  layoutData  Json
+  createdAt   DateTime        @default(now())
+}
+
+model Tag {
+  id      Int          @id @default(autoincrement())
+  name    String
+  configs ConfigTag[]
+}
+
+model ConfigTag {
+  id        Int             @id @default(autoincrement())
+  config    KeyboardConfig  @relation(fields: [configId], references: [id])
+  configId  Int
+  tag       Tag             @relation(fields: [tagId], references: [id])
+  tagId     Int
+}
+
+model ConfigFavorite {
+  id        Int             @id @default(autoincrement())
+  user      User            @relation(fields: [userId], references: [id])
+  userId    Int
+  config    KeyboardConfig  @relation(fields: [configId], references: [id])
+  configId  Int
+  createdAt DateTime        @default(now())
+}
+
+model ConfigComment {
+  id        Int             @id @default(autoincrement())
+  user      User            @relation(fields: [userId], references: [id])
+  userId    Int
+  config    KeyboardConfig  @relation(fields: [configId], references: [id])
+  configId  Int
+  content   String
+  rating    Int?
+  createdAt DateTime        @default(now())
+}
+
+model AnalyticsColorUsage {
+  id        Int       @id @default(autoincrement())
+  user      User?     @relation(fields: [userId], references: [id])
+  userId    Int?
+  color     String
+  count     Int        @default(1)
+  updatedAt DateTime   @updatedAt
+}
+
+model AnalyticsEventLog {
+  id        Int       @id @default(autoincrement())
+  user      User?     @relation(fields: [userId], references: [id])
+  userId    Int?
+  event     String
+  metadata  Json?
+  createdAt DateTime   @default(now())
+}
+
+// E-commerce models (without payment integration)
+
+model ConfigListing {
+  id           Int             @id @default(autoincrement())
+  config       KeyboardConfig  @relation(fields: [configId], references: [id])
+  configId     Int
+  seller       User            @relation(fields: [sellerId], references: [id])
+  sellerId     Int
+  priceCents   Int
+  currency     String          @default("USD")
+  stock        Int?            @default(1)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  orderItems   OrderItem[]
+  cartItems    CartItem[]
+}
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  user      User       @relation(fields: [userId], references: [id])
+  userId    Int        @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id         Int           @id @default(autoincrement())
+  cart       Cart          @relation(fields: [cartId], references: [id])
+  cartId     Int
+  listing    ConfigListing @relation(fields: [listingId], references: [id])
+  listingId  Int
+  quantity   Int           @default(1)
+
+  @@unique([cartId, listingId])
+}
+
+model Order {
+  id            Int          @id @default(autoincrement())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        Int
+  status        OrderStatus  @default(PENDING)
+  totalCents    Int          @default(0)
+  currency      String       @default("USD")
+  items         OrderItem[]
+  shippingAddr  Address?     @relation("OrderShippingAddress", fields: [shippingAddressId], references: [id])
+  shippingAddressId Int?
+  billingAddr   Address?     @relation("OrderBillingAddress", fields: [billingAddressId], references: [id])
+  billingAddressId Int?
+  deliveredAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model OrderItem {
+  id             Int           @id @default(autoincrement())
+  order          Order         @relation(fields: [orderId], references: [id])
+  orderId        Int
+  listing        ConfigListing @relation(fields: [listingId], references: [id])
+  listingId      Int
+  quantity       Int           @default(1)
+  unitPriceCents Int
+  subtotalCents  Int
+}
+
+model Address {
+  id          Int         @id @default(autoincrement())
+  user        User        @relation(fields: [userId], references: [id])
+  userId      Int
+  kind        AddressKind
+  fullName    String
+  line1       String
+  line2       String?
+  city        String
+  state       String?
+  postalCode  String
+  country     String
+  phone       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Back-relations for orders
+  shippingOrders Order[] @relation("OrderShippingAddress")
+  billingOrders  Order[] @relation("OrderBillingAddress")
+}
+
+model UserSavedColor {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  color     String   // Hex color code (e.g., "#FF0000")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, color])
+  @@index([userId])
+}
