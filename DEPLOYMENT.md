@@ -8,12 +8,50 @@ CloudPanel'de PostgreSQL database oluşturma seçeneği yoksa, manuel olarak olu
 
 **Yöntem 1: Otomatik Script (Önerilen)**
 
+**Adım 1: VPS'e SSH ile bağlanın**
+```bash
+# Local makinenizden
+ssh root@your-vps-ip
+# veya
+ssh qeeboard@your-vps-ip
+```
+
+**Adım 2: Proje dizinine gidin**
 ```bash
 cd /home/qeeboard/htdocs/www.qeeboard.com
+```
+
+**Adım 3: Script'i çalıştırın**
+```bash
+# Script'e çalıştırma izni verin (ilk kez)
+chmod +x setup-database.sh
+
+# Script'i çalıştırın (sudo ile)
 sudo ./setup-database.sh
 ```
 
-Script sizden şifre isteyecek ve database'i otomatik oluşturacak.
+**Script ne yapar?**
+- Sizden database kullanıcısı için şifre ister
+- `qeeboard_db` database'ini oluşturur
+- `qeeboard_user` kullanıcısını oluşturur
+- Gerekli yetkileri verir
+- Connection string'i ekranda gösterir
+
+**Örnek çıktı:**
+```
+🗄️  QeeBoard PostgreSQL Database Setup
+
+Enter password for database user 'qeeboard_user': [şifrenizi girin]
+
+Creating database and user...
+✓ Database 'qeeboard_db' created successfully
+✓ User 'qeeboard_user' created successfully
+
+Connection String:
+postgresql://qeeboard_user:your_password@localhost:5432/qeeboard_db
+
+⚠️  Save this connection string! You'll need it for backend/.env file
+```
 
 **Yöntem 2: Manuel Komutlar**
 
@@ -53,6 +91,73 @@ postgresql://qeeboard_user:güçlü_bir_şifre_buraya@localhost:5432/qeeboard_db
 ```
 
 **Not:** `qeeboard_db` ve `qeeboard_user` isimlerini istediğiniz gibi değiştirebilirsiniz. Şifreyi güçlü bir şifre ile değiştirmeyi unutmayın!
+
+---
+
+## Script'leri Çalıştırma - Hızlı Başlangıç
+
+### İlk Kurulum Sırası
+
+1. **VPS'e SSH ile bağlanın:**
+   ```bash
+   ssh root@your-vps-ip
+   ```
+
+2. **Projeyi klonlayın:**
+   ```bash
+   cd /home/qeeboard/htdocs/
+   git clone https://github.com/dogacozdemir/qeeboard.git www.qeeboard.com
+   cd www.qeeboard.com
+   ```
+
+3. **Database oluşturun:**
+   ```bash
+   chmod +x setup-database.sh
+   sudo ./setup-database.sh
+   # Script size connection string gösterecek, kaydedin!
+   ```
+
+4. **Backend .env dosyasını oluşturun:**
+   ```bash
+   cd backend
+   nano .env
+   # Script'ten aldığınız connection string'i DATABASE_URL'e ekleyin
+   # Diğer gerekli değişkenleri de ekleyin
+   ```
+
+5. **Backend, Frontend ve Designer'ı kurun:**
+   ```bash
+   cd /home/qeeboard/htdocs/www.qeeboard.com
+   # Backend
+   cd backend && npm install && npm run db:generate && npm run db:deploy && npm run build && cd ..
+   # Frontend
+   cd frontend && npm install && npm run build && cd ..
+   # Designer
+   cd designer && npm install && npm run build && cd ..
+   ```
+
+6. **PM2 ile backend'i başlatın:**
+   ```bash
+   cd /home/qeeboard/htdocs/www.qeeboard.com
+   pm2 start ecosystem.config.js
+   pm2 save
+   ```
+
+7. **Nginx config'i ayarlayın** (CloudPanel üzerinden veya manuel)
+
+### Güncelleme İşlemi
+
+```bash
+# VPS'e SSH ile bağlanın
+ssh root@your-vps-ip
+
+# Proje dizinine gidin
+cd /home/qeeboard/htdocs/www.qeeboard.com
+
+# Otomatik deployment script'ini çalıştırın
+chmod +x deploy.sh  # İlk kez
+./deploy.sh
+```
 
 ---
 
