@@ -40,7 +40,11 @@ app.use(cors({
     console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, allowedOrigins)
     return callback(new Error('Not allowed by CORS'))
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 }))
 // Increase JSON payload limit to 50MB for large image data
 app.use(express.json({ limit: '50mb' }))
