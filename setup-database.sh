@@ -19,30 +19,29 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Database configuration (değiştirebilirsiniz)
-DB_NAME="qeeboard_db"
-DB_USER="qeeboard_user"
-DB_PASSWORD=""
-
-# Password input
-echo -e "${YELLOW}Enter password for database user '${DB_USER}':${NC}"
-read -s DB_PASSWORD
-echo ""
-
-if [ -z "$DB_PASSWORD" ]; then
-    echo -e "${RED}✗${NC} Password cannot be empty!"
-    exit 1
-fi
+# Database configuration
+DB_NAME="qeeboard"
+DB_USER="qeeboard"
+DB_PASSWORD="qeeboard-123"
 
 echo -e "\n${YELLOW}Creating database and user...${NC}"
 
-# Create database and user
+# Create database and user (if not exists)
 sudo -u postgres psql <<EOF
--- Create database
-CREATE DATABASE ${DB_NAME};
+-- Create database (if not exists)
+SELECT 'CREATE DATABASE ${DB_NAME}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}')\gexec
 
--- Create user
-CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';
+-- Create user (if not exists)
+DO \$\$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_user WHERE usename = '${DB_USER}') THEN
+      CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';
+   ELSE
+      ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';
+   END IF;
+END
+\$\$;
 
 -- Grant privileges
 GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
