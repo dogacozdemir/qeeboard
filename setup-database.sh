@@ -13,10 +13,9 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}🗄️  QeeBoard PostgreSQL Database Setup${NC}\n"
 
-# Check if running as root or with sudo
+# Check if running as root or with sudo (warning only, not required)
 if [ "$EUID" -ne 0 ]; then 
-    echo -e "${RED}✗${NC} Please run with sudo: ${YELLOW}sudo ./setup-database.sh${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠️  Not running as root. Some operations may require sudo.${NC}"
 fi
 
 # Database configuration
@@ -26,8 +25,29 @@ DB_PASSWORD="qeeboard-123"
 
 echo -e "\n${YELLOW}Creating database and user...${NC}"
 
+# Determine PostgreSQL connection method
+PSQL_CMD=""
+if command -v psql >/dev/null 2>&1; then
+    # Try to find postgres user
+    if id "postgres" &>/dev/null; then
+        PSQL_CMD="sudo -u postgres psql"
+    elif [ "$EUID" -eq 0 ]; then
+        # Running as root, try direct psql
+        PSQL_CMD="psql -U postgres"
+    else
+        # Try with current user or system user
+        PSQL_CMD="psql"
+    fi
+else
+    echo -e "${RED}✗${NC} PostgreSQL client (psql) not found!"
+    echo "Please install PostgreSQL client: sudo apt-get install postgresql-client"
+    exit 1
+fi
+
+echo -e "${YELLOW}Using: ${PSQL_CMD}${NC}\n"
+
 # Create database and user (if not exists)
-sudo -u postgres psql <<EOF
+$PSQL_CMD <<EOF
 -- Create database (if not exists)
 SELECT 'CREATE DATABASE ${DB_NAME}'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}')\gexec
