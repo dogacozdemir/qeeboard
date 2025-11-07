@@ -36,28 +36,36 @@ function authHeaders() {
 }
 
 export async function apiGet(path: string, init?: RequestInit) {
-  const res = await fetch(`${API_URL}${path}`, { headers: { ...authHeaders(), ...(init?.headers||{}) }, ...init })
+  // Ensure path starts with / if it doesn't already
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(`${API_URL}${normalizedPath}`, { headers: { ...authHeaders(), ...(init?.headers||{}) }, ...init })
   const data = await res.json().catch(()=>null)
   if (!res.ok) throw new Error(data?.message || `GET ${path} failed`)
   return data
 }
 
 export async function apiPost(path: string, body: unknown, init?: RequestInit) {
-  const res = await fetch(`${API_URL}${path}`, { method: 'POST', headers: { ...authHeaders(), ...(init?.headers||{}) }, body: JSON.stringify(body), ...init })
+  // Ensure path starts with / if it doesn't already
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(`${API_URL}${normalizedPath}`, { method: 'POST', headers: { ...authHeaders(), ...(init?.headers||{}) }, body: JSON.stringify(body), ...init })
   const data = await res.json().catch(()=>null)
   if (!res.ok) throw new Error(data?.message || `POST ${path} failed`)
   return data
 }
 
 export async function apiPut(path: string, body: unknown, init?: RequestInit) {
-  const res = await fetch(`${API_URL}${path}`, { method: 'PUT', headers: { ...authHeaders(), ...(init?.headers||{}) }, body: JSON.stringify(body), ...init })
+  // Ensure path starts with / if it doesn't already
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(`${API_URL}${normalizedPath}`, { method: 'PUT', headers: { ...authHeaders(), ...(init?.headers||{}) }, body: JSON.stringify(body), ...init })
   const data = await res.json().catch(()=>null)
   if (!res.ok) throw new Error(data?.message || `PUT ${path} failed`)
   return data
 }
 
 export async function apiDelete(path: string, body?: unknown, init?: RequestInit) {
-  const res = await fetch(`${API_URL}${path}`, { 
+  // Ensure path starts with / if it doesn't already
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(`${API_URL}${normalizedPath}`, { 
     method: 'DELETE', 
     headers: { ...authHeaders(), ...(init?.headers||{}) }, 
     body: body ? JSON.stringify(body) : undefined,
