@@ -311,8 +311,10 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/preview', async (req, res) => {
   try {
     const configId = parseInt(req.params.id)
+    console.log(`[Preview API] Received preview generation request for config ${configId}`)
 
     if (isNaN(configId)) {
+      console.error(`[Preview API] Invalid config ID: ${req.params.id}`)
       return res.status(400).json({
         success: false,
         message: 'Config ID must be a number'
@@ -325,26 +327,34 @@ router.post('/:id/preview', async (req, res) => {
     })
 
     if (!config) {
+      console.error(`[Preview API] Config not found: ${configId}`)
       return res.status(404).json({
         success: false,
         message: 'Config not found'
       })
     }
 
+    console.log(`[Preview API] Config found, has layoutData: ${!!config.layoutData}, old previewUrl: ${config.previewUrl || 'none'}`)
+
     // Delete old preview if exists
     if (config.previewUrl) {
+      console.log(`[Preview API] Deleting old preview: ${config.previewUrl}`)
       await deletePreview(config.previewUrl)
     }
 
     // Generate new preview
+    console.log(`[Preview API] Starting preview generation for config ${configId}`)
     const previewUrl = await generatePreview(configId, config.layoutData)
 
     if (!previewUrl) {
+      console.error(`[Preview API] Preview generation returned null for config ${configId}`)
       return res.status(500).json({
         success: false,
-        message: 'Failed to generate preview'
+        message: 'Failed to generate preview - check server logs for details'
       })
     }
+
+    console.log(`[Preview API] Preview generated successfully: ${previewUrl}`)
 
     // Update config with new preview URL
     await prisma.keyboardConfig.update({
@@ -352,18 +362,20 @@ router.post('/:id/preview', async (req, res) => {
       data: { previewUrl }
     })
     
-    console.log(`Preview URL saved to database for config ${configId}: ${previewUrl}`)
+    console.log(`[Preview API] Preview URL saved to database for config ${configId}: ${previewUrl}`)
 
     res.json({
       success: true,
       message: 'Preview generated successfully',
       data: { previewUrl }
     })
-  } catch (error) {
-    console.error('Error generating preview:', error)
+  } catch (error: any) {
+    console.error(`[Preview API] Error generating preview:`, error)
+    console.error(`[Preview API] Error stack:`, error?.stack)
     res.status(500).json({
       success: false,
-      message: 'Failed to generate preview'
+      message: `Failed to generate preview: ${error?.message || 'Unknown error'}`,
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
     })
   }
 })

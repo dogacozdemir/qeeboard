@@ -76,8 +76,21 @@ const PREVIEW_BASE_URL = process.env.PREVIEW_BASE_URL || '/api/previews'
 export async function ensurePreviewDir() {
   try {
     await fs.mkdir(PREVIEW_DIR, { recursive: true })
-  } catch (error) {
-    console.error('Failed to create preview directory:', error)
+    console.log(`Preview directory ensured: ${PREVIEW_DIR}`)
+    
+    // Check if directory is writable
+    try {
+      const testFile = path.join(PREVIEW_DIR, '.test-write')
+      await fs.writeFile(testFile, 'test')
+      await fs.unlink(testFile)
+      console.log(`Preview directory is writable: ${PREVIEW_DIR}`)
+    } catch (writeError) {
+      console.error(`Preview directory is NOT writable: ${PREVIEW_DIR}`, writeError)
+      throw new Error(`Preview directory is not writable: ${PREVIEW_DIR}`)
+    }
+  } catch (error: any) {
+    console.error('Failed to create/verify preview directory:', error)
+    throw new Error(`Failed to ensure preview directory: ${error.message}`)
   }
 }
 
@@ -365,12 +378,16 @@ const generateKeycapSVG = (keycap: any, scale: number, offsetX: number, offsetY:
 // Generate preview from layoutData
 export async function generatePreview(configId: number, layoutData: any): Promise<string | null> {
   try {
+    console.log(`[Preview] Starting preview generation for config ${configId}`)
     await ensurePreviewDir()
 
     const layout = layoutData?.layout || layoutData
     if (!layout || !Array.isArray(layout.keys)) {
+      console.error(`[Preview] Invalid layout data for config ${configId}:`, { hasLayout: !!layout, hasKeys: !!layout?.keys })
       throw new Error('Invalid layout data')
     }
+    
+    console.log(`[Preview] Layout validated for config ${configId}, keys count: ${layout.keys.length}`)
 
     // Use same scale as designer for consistency
     const UNIT = 48
@@ -413,15 +430,24 @@ export async function generatePreview(configId: number, layoutData: any): Promis
     // Save PNG file
     const filename = `preview-${configId}-${Date.now()}.png`
     const filepath = path.join(PREVIEW_DIR, filename)
+    
+    console.log(`[Preview] Saving preview file: ${filepath}`)
     await fs.writeFile(filepath, pngBuffer)
     
-    console.log(`Preview generated successfully: ${filename} at ${filepath}`)
-    console.log(`Preview URL: ${PREVIEW_BASE_URL}/${filename}`)
+    // Verify file was written
+    const stats = await fs.stat(filepath)
+    console.log(`[Preview] Preview file saved successfully: ${filename}`)
+    console.log(`[Preview] File size: ${stats.size} bytes`)
+    console.log(`[Preview] File path: ${filepath}`)
+    console.log(`[Preview] Preview URL: ${PREVIEW_BASE_URL}/${filename}`)
 
     // Return URL
-    return `${PREVIEW_BASE_URL}/${filename}`
-  } catch (error) {
-    console.error('Error generating preview:', error)
+    const previewUrl = `${PREVIEW_BASE_URL}/${filename}`
+    console.log(`[Preview] Preview generation completed for config ${configId}: ${previewUrl}`)
+    return previewUrl
+  } catch (error: any) {
+    console.error(`[Preview] Error generating preview for config ${configId}:`, error)
+    console.error(`[Preview] Error stack:`, error?.stack)
     return null
   }
 }
