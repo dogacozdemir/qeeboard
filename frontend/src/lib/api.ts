@@ -27,14 +27,14 @@ export function getUserIdFromToken(): number | null {
   }
 }
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const t = getToken()
   return t ? { Authorization: `Bearer ${t}` } : {}
 }
 
 export async function apiGet(path: string, init?: RequestInit) {
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> || {}) } as HeadersInit,
     ...init,
   })
   const data = await res.json().catch(() => null)
@@ -48,7 +48,7 @@ export async function apiGet(path: string, init?: RequestInit) {
 export async function apiPost(path: string, body: unknown, init?: RequestInit) {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> || {}) } as HeadersInit,
     body: JSON.stringify(body),
     ...init,
   })
@@ -63,7 +63,7 @@ export async function apiPost(path: string, body: unknown, init?: RequestInit) {
 export async function apiPut(path: string, body: unknown, init?: RequestInit) {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> || {}) } as HeadersInit,
     body: JSON.stringify(body),
     ...init,
   })
@@ -78,7 +78,7 @@ export async function apiPut(path: string, body: unknown, init?: RequestInit) {
 export async function apiDelete(path: string, init?: RequestInit) {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> || {}) } as HeadersInit,
     ...init,
   })
   const data = await res.json().catch(() => null)

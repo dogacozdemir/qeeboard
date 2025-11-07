@@ -26,10 +26,6 @@ export default function CartPage() {
   const [editingShippingAddrId, setEditingShippingAddrId] = useState<number | null>(null)
   const [editingBillingAddrId, setEditingBillingAddrId] = useState<number | null>(null)
   const [useSameAddress, setUseSameAddress] = useState<boolean>(true)
-  const [newShippingForm, setNewShippingForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
-  const [newBillingForm, setNewBillingForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
-  const [editShippingForm, setEditShippingForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
-  const [editBillingForm, setEditBillingForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
   const navigate = useNavigate()
 
   const userId = getUserIdFromToken()
@@ -80,44 +76,18 @@ export default function CartPage() {
     if (page === 2 && addresses.length > 0) {
       const shippingAddrs = addresses.filter(a => a.kind === 'SHIPPING')
       const billingAddrs = addresses.filter(a => a.kind === 'BILLING')
-      const selectedShip = shippingAddrs.find(a => a.id === shippingAddressId)
       
       // İlk teslimat adresini edit modunda aç
       const firstShipping = shippingAddrs[0]
       if (firstShipping && !editingShippingAddrId) {
-        setEditShippingForm({ 
-          fullName: firstShipping.fullName, 
-          line1: firstShipping.line1, 
-          line2: firstShipping.line2 || '', 
-          city: firstShipping.city, 
-          postalCode: firstShipping.postalCode, 
-          country: firstShipping.country 
-        })
         setEditingShippingAddrId(firstShipping.id)
         setShippingAddressId(firstShipping.id)
       }
       
       // Fatura adresini edit modunda aç
-      if (useSameAddress && selectedShip) {
-        setEditBillingForm({ 
-          fullName: selectedShip.fullName, 
-          line1: selectedShip.line1, 
-          line2: selectedShip.line2 || '', 
-          city: selectedShip.city, 
-          postalCode: selectedShip.postalCode, 
-          country: selectedShip.country 
-        })
-      } else {
+      if (!useSameAddress) {
         const firstBilling = billingAddrs[0]
         if (firstBilling && !editingBillingAddrId) {
-          setEditBillingForm({ 
-            fullName: firstBilling.fullName, 
-            line1: firstBilling.line1, 
-            line2: firstBilling.line2 || '', 
-            city: firstBilling.city, 
-            postalCode: firstBilling.postalCode, 
-            country: firstBilling.country 
-          })
           setEditingBillingAddrId(firstBilling.id)
           setBillingAddressId(firstBilling.id)
         }
@@ -143,15 +113,7 @@ export default function CartPage() {
   const shipping = shippingCost // Kargo fiyatı (sayfa 2'de güncellenecek)
   const taxes = 0 // tahmini vergi (yakında)
 
-  const inc = async (item: CartItem) => {
-    await apiPut(`/api/cart/items/${item.id}`, { quantity: item.quantity + 1 })
-    await loadCart()
-  }
-  const dec = async (item: CartItem) => {
-    if (item.quantity <= 1) return
-    await apiPut(`/api/cart/items/${item.id}`, { quantity: item.quantity - 1 })
-    await loadCart()
-  }
+  // Removed unused inc and dec functions - using setQuantity instead
   const setQuantity = async (item: CartItem, quantity: number) => {
     if (quantity < 1) return
     await apiPut(`/api/cart/items/${item.id}`, { quantity })
@@ -162,67 +124,7 @@ export default function CartPage() {
     await loadCart()
   }
 
-  const saveShippingAddress = async () => {
-    if (!userId) return
-    if (!newShippingForm.fullName || !newShippingForm.line1 || !newShippingForm.city || !newShippingForm.postalCode || !newShippingForm.country) {
-      alert('Lütfen tüm alanları doldurun')
-      return
-    }
-    try {
-      const res = await apiPost('/api/addresses', {
-        userId,
-        kind: 'SHIPPING',
-        ...newShippingForm
-      })
-      await loadAddresses()
-      setShippingAddressId(res.data?.id)
-      setNewShippingForm({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
-    } catch (e) {
-      alert('Adres kaydedilemedi')
-    }
-  }
-
-  const saveBillingAddress = async () => {
-    if (!userId) return
-    if (!newBillingForm.fullName || !newBillingForm.line1 || !newBillingForm.city || !newBillingForm.postalCode || !newBillingForm.country) {
-      alert('Lütfen tüm alanları doldurun')
-      return
-    }
-    try {
-      const res = await apiPost('/api/addresses', {
-        userId,
-        kind: 'BILLING',
-        ...newBillingForm
-      })
-      await loadAddresses()
-      setBillingAddressId(res.data?.id)
-      setNewBillingForm({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
-    } catch (e) {
-      alert('Adres kaydedilemedi')
-    }
-  }
-
-  const updateShippingAddress = async (addrId: number) => {
-    if (!userId) return
-    try {
-      await apiPut(`/api/addresses/${addrId}`, editShippingForm)
-      await loadAddresses()
-      setEditingShippingAddrId(null)
-    } catch (e) {
-      alert('Adres güncellenemedi')
-    }
-  }
-
-  const updateBillingAddress = async (addrId: number) => {
-    if (!userId) return
-    try {
-      await apiPut(`/api/addresses/${addrId}`, editBillingForm)
-      await loadAddresses()
-      setEditingBillingAddrId(null)
-    } catch (e) {
-      alert('Adres güncellenemedi')
-    }
-  }
+  // Removed unused address save/update functions - addresses are managed inline in the form
 
   const checkout = async () => {
     if (!userId) return
@@ -264,9 +166,7 @@ export default function CartPage() {
   const [billingCountry, setBillingCountry] = useState<string>('Türkiye')
   const [billingState, setBillingState] = useState<string>('')
 
-  const shippingAddresses = addresses.filter(a => a.kind === 'SHIPPING')
-  const billingAddresses = addresses.filter(a => a.kind === 'BILLING')
-  const selectedShippingAddr = shippingAddresses.find(a => a.id === shippingAddressId)
+  // Removed unused shippingAddresses - addresses are accessed directly when needed
 
   // Kargo fiyatını hesapla (örnek: seçilen kargo yöntemine göre)
   useEffect(() => {

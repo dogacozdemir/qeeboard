@@ -123,21 +123,6 @@ export const THEMES: Record<ThemeType, ThemeDefinition> = {
     colors: { start: '#2193b0', end: '#6dd5ed', direction: 'horizontal' },
     textColor: '#0f172a',
   },
-  // Two-color themes (edge vs center)
-  'two-color/midnight': {
-    id: 'two-color/midnight',
-    label: 'Midnight (İki renkli)',
-    type: 'two-color',
-    colors: { start: '#0f172a', end: '#334155' },
-    textColor: '#e2e8f0',
-  },
-  'two-color/candy': {
-    id: 'two-color/candy',
-    label: 'Candy (İki renkli)',
-    type: 'two-color',
-    colors: { start: '#f43f5e', end: '#f59e0b' },
-    textColor: '#ffffff',
-  },
 };
 
 export function getTheme(id: ThemeType): ThemeDefinition | undefined {
