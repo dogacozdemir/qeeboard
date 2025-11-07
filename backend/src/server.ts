@@ -30,6 +30,9 @@ const extraOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean)
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...extraOrigins]))
 
+// Log allowed origins for debugging
+console.log('CORS allowed origins:', allowedOrigins)
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
