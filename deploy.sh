@@ -77,7 +77,11 @@ echo -e "${GREEN}✓${NC} Backend restarted"
 
 # Reload Nginx
 echo -e "\n${YELLOW}🔄 Reloading Nginx...${NC}"
-sudo nginx -t && sudo systemctl reload nginx
+if [ "$EUID" -eq 0 ]; then
+    nginx -t && systemctl reload nginx
+else
+    sudo nginx -t && sudo systemctl reload nginx
+fi
 
 echo -e "${GREEN}✓${NC} Nginx reloaded"
 
