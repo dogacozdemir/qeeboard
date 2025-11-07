@@ -772,7 +772,7 @@ const Index = () => {
                 style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
               >
                 <img 
-                  src="/qeeboard.png" 
+                  src="/designer/qeeboard.png" 
                   alt="QeeBoard" 
                   className="h-full w-auto object-contain"
                 />
