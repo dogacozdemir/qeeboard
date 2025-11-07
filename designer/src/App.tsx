@@ -14,7 +14,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename="/designer">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/svg-demo" element={<SVGDemo />} />
