@@ -159,16 +159,20 @@ pm2 save
 
 ### 6. Nginx Configuration (Path Bazlı Routing)
 
+**ÖNEMLİ:** CloudPanel'de site oluştururken port ayarını **80/443** yapın veya boş bırakın. **5173 veya başka bir port kullanmayın** - bu sadece development için.
+
 CloudPanel'de site oluşturduktan sonra, Nginx config dosyasını düzenleyin:
 
 ```bash
 # CloudPanel genelde şu yerde tutar:
-nano /home/cloudpanel/htdocs/*/nginx.conf
+nano /home/qeeboard/htdocs/www.qeeboard.com/nginx.conf
+# veya CloudPanel'in oluşturduğu config:
+nano /etc/nginx/sites-available/www.qeeboard.com
 # veya
-nano /etc/nginx/sites-available/your-site
+nano /etc/nginx/conf.d/www.qeeboard.com.conf
 ```
 
-Nginx config içeriği için `nginx.conf` dosyasına bakın.
+Nginx config içeriği için proje kökündeki `nginx.conf` dosyasına bakın. CloudPanel'in oluşturduğu config dosyasını bu içerikle değiştirin veya merge edin.
 
 ### 7. Static Files için Symbolic Links
 
