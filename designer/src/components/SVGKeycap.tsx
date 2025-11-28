@@ -15,7 +15,50 @@ import {
   faWifi, faBatteryFull, faBatteryHalf, faBatteryEmpty,
   faSun, faMoon, faCloud, faCloudRain, faSnowflake,
   faGamepad, faTrophy, faGift, faShoppingCart, faCreditCard,
-  faShield
+  faShield,
+  // Additional solid icons from IconPicker
+  faBars, faEllipsisH, faEllipsisV, faThumbsUp, faThumbsDown, faSmile, faFrown, faMeh,
+  faFire, faBolt, faZap, faShieldAlt, faFlag, faFlagCheckered,
+  faRocket, faPlane, faCar, faBicycle, faBus, faTrain, faShip, faHelicopter,
+  faBuilding, faStore, faHospital, faSchool, faUniversity, faChurch, faMosque,
+  faCoffee, faUtensils, faPizzaSlice, faHamburger, faIceCream, faCookie, faCake,
+  faMusic, faHeadphones, faMicrophone as faMic, faRadio, faTv, faCamera, faVideo,
+  faBook, faBookOpen, faNewspaper, faScroll, faPen, faPencil, faPencilAlt,
+  faPaintBrush, faPalette, faEraser, faHighlighter, faMarker, faStamp,
+  faGlobe, faGlobeAmericas, faGlobeEurope, faGlobeAsia, faMap, faMapPin,
+  faCompass, faRoute, faRoad, faSign, faTrafficLight, faParking,
+  faTree, faLeaf, faSeedling, faBug, faSpider, faFish,
+  faCat, faDog, faHorse, faPaw, faFrog, faDove, faCrow, faOtter,
+  faGem, faDiamond, faCrown, faRing, faGlasses,
+  faHatCowboy, faHatWizard, faMask, faTheaterMasks, faVest, faShirt,
+  faDice, faDiceOne, faDiceTwo, faDiceThree, faDiceFour, faDiceFive, faDiceSix,
+  faChess, faChessKing, faChessQueen, faChessRook, faChessBishop, faChessKnight, faChessPawn,
+  faPuzzlePiece, faCube, faCubes, faBox, faBoxes, faGift as faPresent,
+  faTag, faTags, faTicketAlt, faQrcode, faBarcode, faReceipt, faMoneyBill,
+  faCoins, faDollarSign, faEuroSign, faPoundSign, faYenSign, faWonSign,
+  faCalculator, faRuler, faRulerCombined, faRulerHorizontal, faRulerVertical,
+  faWeight, faBalanceScale, faThermometerHalf, faThermometerFull, faThermometerEmpty,
+  faStopwatch, faHourglass, faHourglassHalf, faHourglassStart, faHourglassEnd,
+  faBell, faBellSlash, faAlarmClock, faBed, faToilet, faShower, faBath,
+  faTooth, faPills, faSyringe, faBandAid, faStethoscope, faHeartbeat,
+  faRunning, faWalking, faHiking, faSwimmer, faBasketballBall, faFootball, faBaseball,
+  faSoccerBall, faVolleyballBall, faGolfBall, faBowlingBall, faHockeyPuck,
+  faSkating, faSkiing, faSnowboarding,
+  faTent, faSuitcase, faSuitcaseRolling,
+  faPassport, faIdCard, faIdBadge, faCreditCard as faCard, faWallet,
+  faHandshake, faHands, faHandsHelping, faHandsWash, faHandHolding, faHandHoldingHeart,
+  faThumbtack, faPaperclip, faClipboard, faClipboardList, faClipboardCheck,
+  faStickyNote, faNoteSticky,
+  faBookmark as faBookmarkSolid,
+  faRibbon, faAward, faMedal, faTrophy as faTrophySolid,
+  faWineGlass, faWineGlassAlt, faBeer, faCocktail,
+  faUtensilSpoon,
+  faBlender, faBlenderPhone,
+  faBroom, faSprayCan, faSoap,
+  faToiletPaper, faPaperPlane, faPlaneDeparture, faPlaneArrival,
+  faParachuteBox, faSatellite, faSatelliteDish, faSpaceShuttle,
+  faRobot, faFeather, faFeatherAlt,
+  faPeace, faOm, faYinYang
 } from '@fortawesome/free-solid-svg-icons';
 
 import { 
@@ -39,27 +82,73 @@ import { KeycapConfig, KeycapLayer } from '@/types/keyboard';
 import { getTheme } from '@/data/themes';
 
 const iconMap: Record<string, any> = {
+  // Basic icons
   home: faHome, user: faUser, cog: faCog, heart: faHeart, star: faStar,
   play: faPlay, pause: faPause, stop: faStop, edit: faEdit, trash: faTrash,
   save: faSave, download: faDownload, upload: faUpload, copy: faCopy, cut: faCut, paste: faPaste,
-  bold: faBold, italic: faItalic, underline: faUnderline, alignLeft: faAlignLeft, alignCenter: faAlignCenter, alignRight: faAlignRight,
+  bold: faBold, italic: faItalic, underline: faUnderline, 'align-left': faAlignLeft, 'align-center': faAlignCenter, 'align-right': faAlignRight,
   plus: faPlus, minus: faMinus, times: faMultiply, multiply: faMultiply, divide: faDivide, equals: faEquals,
-  arrowUp: faArrowUp, arrowDown: faArrowDown, arrowLeft: faArrowLeft, arrowRight: faArrowRight,
-  chevronUp: faChevronUp, chevronDown: faChevronDown, chevronLeft: faChevronLeft, chevronRight: faChevronRight,
+  'arrow-up': faArrowUp, 'arrow-down': faArrowDown, 'arrow-left': faArrowLeft, 'arrow-right': faArrowRight,
+  'chevron-up': faChevronUp, 'chevron-down': faChevronDown, 'chevron-left': faChevronLeft, 'chevron-right': faChevronRight,
   check: faCheck, x: faX, question: faQuestion, exclamation: faExclamation,
-  lock: faLock, unlock: faUnlock, eye: faEye, eyeSlash: faEyeSlash, key: faKey,
-  phone: faPhone, envelope: faEnvelope, calendar: faCalendar, clock: faClock, mapMarker: faMapMarker,
-  image: faImage, file: faFile, folder: faFolder, link: faLink, externalLinkAlt: faExternalLinkAlt,
-  volumeUp: faVolumeUp, volumeDown: faVolumeDown, volumeMute: faVolumeMute, microphone: faMicrophone, microphoneSlash: faMicrophoneSlash,
-  wifi: faWifi, batteryFull: faBatteryFull, batteryHalf: faBatteryHalf, batteryEmpty: faBatteryEmpty,
-  sun: faSun, moon: faMoon, cloud: faCloud, cloudRain: faCloudRain, snowflake: faSnowflake,
-  gamepad: faGamepad, trophy: faTrophy, gift: faGift, shoppingCart: faShoppingCart, creditCard: faCreditCard,
+  lock: faLock, unlock: faUnlock, eye: faEye, 'eye-slash': faEyeSlash, key: faKey,
+  phone: faPhone, envelope: faEnvelope, calendar: faCalendar, clock: faClock, 'map-marker': faMapMarker,
+  image: faImage, file: faFile, folder: faFolder, link: faLink, 'external-link-alt': faExternalLinkAlt,
+  'volume-up': faVolumeUp, 'volume-down': faVolumeDown, 'volume-mute': faVolumeMute, microphone: faMicrophone, 'microphone-slash': faMicrophoneSlash,
+  wifi: faWifi, 'battery-full': faBatteryFull, 'battery-half': faBatteryHalf, 'battery-empty': faBatteryEmpty,
+  sun: faSun, moon: faMoon, cloud: faCloud, 'cloud-rain': faCloudRain, snowflake: faSnowflake,
+  gamepad: faGamepad, trophy: faTrophy, gift: faGift, 'shopping-cart': faShoppingCart, 'credit-card': faCreditCard,
   shield: faShield,
+  // Additional icons from IconPicker
+  bars: faBars, 'ellipsis-h': faEllipsisH, 'ellipsis-v': faEllipsisV, 'thumbs-up': faThumbsUp, 'thumbs-down': faThumbsDown, smile: faSmile, frown: faFrown, meh: faMeh,
+  fire: faFire, bolt: faBolt, zap: faZap, 'shield-alt': faShieldAlt, flag: faFlag, 'flag-checkered': faFlagCheckered,
+  rocket: faRocket, plane: faPlane, car: faCar, bicycle: faBicycle, bus: faBus, train: faTrain, ship: faShip, helicopter: faHelicopter,
+  building: faBuilding, store: faStore, hospital: faHospital, school: faSchool, university: faUniversity, church: faChurch, mosque: faMosque,
+  coffee: faCoffee, utensils: faUtensils, 'pizza-slice': faPizzaSlice, hamburger: faHamburger, 'ice-cream': faIceCream, cookie: faCookie, cake: faCake,
+  music: faMusic, headphones: faHeadphones, mic: faMic, radio: faRadio, tv: faTv, camera: faCamera, video: faVideo,
+  book: faBook, 'book-open': faBookOpen, newspaper: faNewspaper, scroll: faScroll, pen: faPen, pencil: faPencil, 'pencil-alt': faPencilAlt,
+  'paint-brush': faPaintBrush, palette: faPalette, eraser: faEraser, highlighter: faHighlighter, marker: faMarker, stamp: faStamp,
+  globe: faGlobe, 'globe-americas': faGlobeAmericas, 'globe-europe': faGlobeEurope, 'globe-asia': faGlobeAsia, map: faMap, 'map-pin': faMapPin,
+  compass: faCompass, route: faRoute, road: faRoad, sign: faSign, 'traffic-light': faTrafficLight, parking: faParking,
+  tree: faTree, leaf: faLeaf, seedling: faSeedling, bug: faBug, spider: faSpider, fish: faFish,
+  cat: faCat, dog: faDog, horse: faHorse, paw: faPaw, frog: faFrog, dove: faDove, crow: faCrow, otter: faOtter,
+  gem: faGem, diamond: faDiamond, crown: faCrown, ring: faRing, glasses: faGlasses,
+  'hat-cowboy': faHatCowboy, 'hat-wizard': faHatWizard, mask: faMask, 'theater-masks': faTheaterMasks, vest: faVest, shirt: faShirt,
+  dice: faDice, 'dice-one': faDiceOne, 'dice-two': faDiceTwo, 'dice-three': faDiceThree, 'dice-four': faDiceFour, 'dice-five': faDiceFive, 'dice-six': faDiceSix,
+  chess: faChess, 'chess-king': faChessKing, 'chess-queen': faChessQueen, 'chess-rook': faChessRook, 'chess-bishop': faChessBishop, 'chess-knight': faChessKnight, 'chess-pawn': faChessPawn,
+  'puzzle-piece': faPuzzlePiece, cube: faCube, cubes: faCubes, box: faBox, boxes: faBoxes, present: faPresent,
+  tag: faTag, tags: faTags, 'ticket-alt': faTicketAlt, qrcode: faQrcode, barcode: faBarcode, receipt: faReceipt, 'money-bill': faMoneyBill,
+  coins: faCoins, 'dollar-sign': faDollarSign, 'euro-sign': faEuroSign, 'pound-sign': faPoundSign, 'yen-sign': faYenSign, 'won-sign': faWonSign,
+  calculator: faCalculator, ruler: faRuler, 'ruler-combined': faRulerCombined, 'ruler-horizontal': faRulerHorizontal, 'ruler-vertical': faRulerVertical,
+  weight: faWeight, 'balance-scale': faBalanceScale, 'thermometer-half': faThermometerHalf, 'thermometer-full': faThermometerFull, 'thermometer-empty': faThermometerEmpty,
+  stopwatch: faStopwatch, hourglass: faHourglass, 'hourglass-half': faHourglassHalf, 'hourglass-start': faHourglassStart, 'hourglass-end': faHourglassEnd,
+  bell: faBell, 'bell-slash': faBellSlash, 'alarm-clock': faAlarmClock, bed: faBed, toilet: faToilet, shower: faShower, bath: faBath,
+  tooth: faTooth, pills: faPills, syringe: faSyringe, 'band-aid': faBandAid, stethoscope: faStethoscope, heartbeat: faHeartbeat,
+  running: faRunning, walking: faWalking, hiking: faHiking, swimmer: faSwimmer, 'basketball-ball': faBasketballBall, football: faFootball, baseball: faBaseball,
+  'soccer-ball': faSoccerBall, 'volleyball-ball': faVolleyballBall, 'golf-ball': faGolfBall, 'bowling-ball': faBowlingBall, 'hockey-puck': faHockeyPuck,
+  skating: faSkating, skiing: faSkiing, snowboarding: faSnowboarding,
+  tent: faTent, suitcase: faSuitcase, 'suitcase-rolling': faSuitcaseRolling,
+  passport: faPassport, 'id-card': faIdCard, 'id-badge': faIdBadge, card: faCard, wallet: faWallet,
+  handshake: faHandshake, hands: faHands, 'hands-helping': faHandsHelping, 'hands-wash': faHandsWash, 'hand-holding': faHandHolding, 'hand-holding-heart': faHandHoldingHeart,
+  thumbtack: faThumbtack, paperclip: faPaperclip, clipboard: faClipboard, 'clipboard-list': faClipboardList, 'clipboard-check': faClipboardCheck,
+  'sticky-note': faStickyNote, 'note-sticky': faNoteSticky,
+  'bookmark-solid': faBookmarkSolid,
+  ribbon: faRibbon, award: faAward, medal: faMedal, 'trophy-solid': faTrophySolid,
+  'wine-glass': faWineGlass, 'wine-glass-alt': faWineGlassAlt, beer: faBeer, cocktail: faCocktail,
+  'utensil-spoon': faUtensilSpoon,
+  blender: faBlender, 'blender-phone': faBlenderPhone,
+  broom: faBroom, 'spray-can': faSprayCan, soap: faSoap,
+  'toilet-paper': faToiletPaper, 'paper-plane': faPaperPlane, 'plane-departure': faPlaneDeparture, 'plane-arrival': faPlaneArrival,
+  'parachute-box': faParachuteBox, satellite: faSatellite, 'satellite-dish': faSatelliteDish, 'space-shuttle': faSpaceShuttle,
+  robot: faRobot, feather: faFeather, 'feather-alt': faFeatherAlt,
+  peace: faPeace, om: faOm, 'yin-yang': faYinYang,
 
+  // Regular icons
   'heart-regular': faHeartRegular, 'star-regular': faStarRegular, 'bookmark-regular': faBookmarkRegular,
   'user-regular': faUserRegular, 'envelope-regular': faEnvelopeRegular, 'file-regular': faFileRegular,
   'folder-regular': faFolderRegular, 'image-regular': faImageRegular,
 
+  // Brand icons
   github: faGithub, twitter: faTwitter, facebook: faFacebook, instagram: faInstagram, linkedin: faLinkedin,
   youtube: faYoutube, discord: faDiscord, steam: faSteam, spotify: faSpotify, apple: faApple,
   google: faGoogle, microsoft: faMicrosoft, amazon: faAmazon, paypal: faPaypal
@@ -194,15 +283,95 @@ const SVGKeycap: React.FC<SVGKeycapProps> = ({
     `;
 
     if (layer.type === 'image' && layer.content?.trim()) {
+      // Calculate preserveAspectRatio based on alignment
+      // Format: xAlignYAlign meet/slice
+      let xAlign = 'Mid'; // left -> Min, center -> Mid, right -> Max
+      let yAlign = 'Mid'; // top -> Min, center -> Mid, bottom -> Max
+
+      if (layer.alignment === 'left') {
+        xAlign = 'Min';
+      } else if (layer.alignment === 'right') {
+        xAlign = 'Max';
+      }
+
+      if (layer.verticalAlignment === 'top') {
+        yAlign = 'Min';
+      } else if (layer.verticalAlignment === 'bottom') {
+        yAlign = 'Max';
+      }
+
+      const preserveAspectRatio = `x${xAlign}Y${yAlign} meet`;
+
+      // Calculate base image position based on alignment
+      // For vertical alignment, we need to adjust the y position
+      // Image always starts at (x, y), so we need to calculate where it should start
+      let imageX = innerLeft;
+      let imageY = innerTop;
+
+      // Horizontal alignment affects x position
+      if (layer.alignment === 'left') {
+        imageX = innerLeft;
+      } else if (layer.alignment === 'right') {
+        imageX = innerLeft; // Image still starts at innerLeft, preserveAspectRatio handles right alignment
+      } else {
+        // center - image starts at innerLeft, preserveAspectRatio centers it
+        imageX = innerLeft;
+      }
+
+      // Vertical alignment affects y position
+      // Since preserveAspectRatio="meet" scales image to fit, we need to adjust y
+      // For top: start at innerTop
+      // For center: start at innerTop (preserveAspectRatio centers it)
+      // For bottom: we need to calculate - image will be scaled to fit width or height
+      // Since we don't know the actual image dimensions, we'll use a different approach:
+      // Use preserveAspectRatio for vertical alignment, but also adjust y position
+      
+      // Actually, for SVG image with preserveAspectRatio="meet", the image is scaled to fit
+      // and then aligned within the viewBox. The x,y position is always the top-left of the viewBox.
+      // So we need to use a transform to move the image after it's been scaled and aligned.
+      
+      // Better approach: Use preserveAspectRatio for both alignments, and use transform for positioning
+      // But that's complex. Let's use a simpler approach: calculate y based on vertical alignment
+      // assuming the image will be scaled to fit the width (worst case for vertical alignment)
+      
+      // Actually, the simplest solution: Use preserveAspectRatio for horizontal alignment,
+      // and adjust y position for vertical alignment by using a transform
+      
+      // Calculate transform for vertical alignment
+      let verticalTransform = '';
+      if (layer.verticalAlignment === 'top') {
+        imageY = innerTop;
+      } else if (layer.verticalAlignment === 'bottom') {
+        // For bottom alignment, we need to move the image down
+        // Since image is scaled with preserveAspectRatio="meet", we can't know exact height
+        // So we'll use a transform to translate it down by innerHeight
+        imageY = innerTop;
+        verticalTransform = `translate(0, ${innerHeight})`;
+      } else {
+        // center
+        imageY = innerTop;
+        verticalTransform = `translate(0, ${innerHeight / 2})`;
+      }
+
+      // Apply offsets
+      imageX += (layer.offsetX || 0) * scale;
+      imageY += (layer.offsetY || 0) * scale;
+
+      // Combine transforms
+      const imageTransform = verticalTransform ? `${transform} ${verticalTransform}` : transform;
+
+      const imageOpacity = layer.opacity !== undefined ? layer.opacity : 1;
+
       return (
-        <g key={layer.id} transform={transform} clipPath={`url(#text-clip-${keycap.id}-${index})`}>
+        <g key={layer.id} transform={imageTransform} clipPath={`url(#text-clip-${keycap.id}-${index})`}>
           <image
             href={layer.content}
-            x={innerLeft}
-            y={innerTop}
+            x={imageX}
+            y={imageY}
             width={innerWidth}
             height={innerHeight}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio={preserveAspectRatio}
+            opacity={imageOpacity}
           />
         </g>
       );
@@ -215,8 +384,30 @@ const SVGKeycap: React.FC<SVGKeycapProps> = ({
 
       const iconSize = (layer.fontSize || 16) * scale;
       const iconColor = layer.color || keycap.textColor || '#ffffff';
-      const iconX = innerLeft + innerWidth / 2;
-      const iconY = innerTop + innerHeight / 2;
+      
+      // Calculate icon position based on alignment - same logic as text
+      let iconX = innerLeft + innerWidth / 2;
+      let iconY = innerTop + innerHeight / 2;
+
+      // Horizontal alignment - full inner square width
+      if (layer.alignment === 'left') {
+        iconX = innerLeft;
+      } else if (layer.alignment === 'right') {
+        iconX = innerLeft + innerWidth;
+      }
+      // else 'center' - already set
+
+      // Vertical alignment - full inner square height
+      if (layer.verticalAlignment === 'top') {
+        iconY = innerTop;
+      } else if (layer.verticalAlignment === 'bottom') {
+        iconY = innerTop + innerHeight;
+      }
+      // else 'center' - already set
+
+      // Apply offsets
+      iconX += (layer.offsetX || 0) * scale;
+      iconY += (layer.offsetY || 0) * scale;
 
       return (
         <g key={layer.id} transform={transform} clipPath={`url(#text-clip-${keycap.id}-${index})`}>

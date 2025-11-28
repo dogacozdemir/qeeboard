@@ -15,6 +15,7 @@ export interface KeycapLayer {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  opacity?: number; // 0-1 for image transparency
 }
 
 export interface KeycapConfig {

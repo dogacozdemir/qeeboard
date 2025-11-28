@@ -12,6 +12,7 @@ interface GroupManagerProps {
   onSaveGroup: (groupName: string, keyIds: string[]) => void;
   onLoadGroup: (groupName: string) => void;
   onDeleteGroup: (groupName: string) => void;
+  onRenameGroup?: (oldName: string, newName: string) => void;
   className?: string;
 }
 
@@ -21,10 +22,13 @@ const GroupManager: React.FC<GroupManagerProps> = ({
   onSaveGroup,
   onLoadGroup,
   onDeleteGroup,
+  onRenameGroup,
   className,
 }) => {
   const [newGroupName, setNewGroupName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
   const handleSaveGroup = () => {
     if (newGroupName.trim() && selectedKeys.length > 0) {
@@ -58,31 +62,74 @@ const GroupManager: React.FC<GroupManagerProps> = ({
         {/* Saved groups list area (compact). If empty, show Save control here */}
         <div className="space-y-1">
           {groupNames.length > 0 ? (
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+            <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-thin">
               {groupNames.map((groupName) => (
                 <div
                   key={groupName}
                   className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
                 >
-                  <button
-                    onClick={() => onLoadGroup(groupName)}
-                    className="flex-1 text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{groupName}</span>
+                  {editingGroupName === groupName ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Input
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (editingValue.trim() && editingValue.trim() !== groupName && onRenameGroup) {
+                              onRenameGroup(groupName, editingValue.trim());
+                            }
+                            setEditingGroupName(null);
+                            setEditingValue('');
+                          } else if (e.key === 'Escape') {
+                            setEditingGroupName(null);
+                            setEditingValue('');
+                          }
+                        }}
+                        onBlur={() => {
+                          if (editingValue.trim() && editingValue.trim() !== groupName && onRenameGroup) {
+                            onRenameGroup(groupName, editingValue.trim());
+                          }
+                          setEditingGroupName(null);
+                          setEditingValue('');
+                        }}
+                        className="text-sm h-7 flex-1"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
                       <Badge variant="secondary" className="text-xs">
                         {`${groups[groupName].length} keys`}
                       </Badge>
                     </div>
-                  </button>
-                  <Button
-                    onClick={() => onDeleteGroup(groupName)}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onLoadGroup(groupName)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          if (onRenameGroup) {
+                            setEditingGroupName(groupName);
+                            setEditingValue(groupName);
+                          }
+                        }}
+                        className="flex-1 text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{groupName}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {`${groups[groupName].length} keys`}
+                          </Badge>
+                        </div>
+                      </button>
+                      <Button
+                        onClick={() => onDeleteGroup(groupName)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

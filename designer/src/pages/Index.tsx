@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useKeyboardConfig } from '@/hooks/useKeyboardConfig';
 import { layoutOptions } from '@/data/layouts';
 import UnifiedSidebar from '@/components/UnifiedSidebar';
@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [view3D, setView3D] = useState(false);
+  const [toolbarOpenSection, setToolbarOpenSection] = useState<'text' | 'icon' | 'image' | null>(null);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
   const [uiOpen, setUiOpen] = useState(false);
@@ -208,6 +209,33 @@ const Index = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const { toast } = useToast();
   
+  // Load config from URL parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const configIdParam = params.get('configId');
+    if (configIdParam) {
+      const configId = parseInt(configIdParam);
+      if (!isNaN(configId) && !currentConfigId) {
+        // Load config if not already loaded
+        (async () => {
+          try {
+            const res = await apiGet(`/api/configs/${configId}`);
+            const cfg = res?.data;
+            if (cfg?.layoutData) {
+              hydrateFromLayoutData(cfg.layoutData, cfg.layoutData?.currentLayoutType, cfg.layoutData?.layoutStandard);
+              setCurrentConfigId(configId);
+              setCurrentConfigName(cfg?.name || null);
+              try { localStorage.setItem('onboarding_done', '1'); } catch {}
+              setShowWelcome(false);
+            }
+          } catch (error) {
+            console.error('Failed to load config from URL:', error);
+          }
+        })();
+      }
+    }
+  }, []); // Only run on mount
+  
   // Project name değişikliği için debounce
   const [pendingNameUpdate, setPendingNameUpdate] = useState<string | null>(null);
   const [lastSavedName, setLastSavedName] = useState<string | null>(null);
@@ -290,6 +318,7 @@ const Index = () => {
     saveGroup,
     loadGroup,
     deleteGroup,
+    renameGroup,
     resetLayout,
     canUndo,
     canRedo,
@@ -347,9 +376,23 @@ const Index = () => {
     }
   }, [isMultiSelection, editingKeyId, stopEditingKey]);
 
+  // Track manual layer selection to prevent useEffect from overriding it
+  const manualLayerSelectionRef = useRef<{ layerId: string; timestamp: number } | null>(null);
+  const MANUAL_SELECTION_TIMEOUT = 100; // ms
+
   // Auto-select all layers when multi-selection starts (if no specific layer type is selected)
   // Also update when previewKeys change (during drag selection)
   useEffect(() => {
+    // Skip auto-update if a manual layer selection was made recently
+    if (manualLayerSelectionRef.current) {
+      const timeSinceManualSelection = Date.now() - manualLayerSelectionRef.current.timestamp;
+      if (timeSinceManualSelection < MANUAL_SELECTION_TIMEOUT) {
+        return; // Don't override manual selection
+      }
+      // Clear the ref after timeout
+      manualLayerSelectionRef.current = null;
+    }
+
     const keysToUse = previewKeys.length > 0 ? previewKeys : config.selectedKeys;
     const isPreviewMultiSelection = previewKeys.length > 1;
     const isActualMultiSelection = config.selectedKeys.length > 1;
@@ -374,6 +417,17 @@ const Index = () => {
       }
     } else if (keysToUse.length === 1 && editingKeyId) {
       // Single selection: auto-select all layers from the selected key
+      // BUT: if selectedLayerIds has only one layer (manual selection), don't override
+      if (selectedLayerIds.length === 1) {
+        // Check if the single selected layer belongs to the current key
+        const layers = getKeyLayers(editingKeyId);
+        const layerExists = layers.some(l => l.id === selectedLayerIds[0]);
+        if (layerExists) {
+          // Keep the manual selection
+          return;
+        }
+      }
+      
       const layers = getKeyLayers(editingKeyId);
       const layerIds = layers.map(l => l.id);
       if (layerIds.length > 0) {
@@ -433,8 +487,14 @@ const Index = () => {
   const handleLayerSelect = (layerId: string) => {
     if (layerId === '') {
       selectLayer(null); // Clear layer selection
+      setSelectedLayerIds([]);
+      manualLayerSelectionRef.current = null;
     } else {
       selectLayer(layerId);
+      // When a specific layer is selected, set selectedLayerIds to only that layer
+      setSelectedLayerIds([layerId]);
+      // Mark this as a manual selection to prevent useEffect from overriding it
+      manualLayerSelectionRef.current = { layerId, timestamp: Date.now() };
     }
   };
 
@@ -908,20 +968,63 @@ const Index = () => {
               onSaveGroup={saveGroup}
               onLoadGroup={loadGroup}
               onDeleteGroup={deleteGroup}
+              onRenameGroup={renameGroup}
               editingKeyId={isMultiSelection ? null : editingKeyId}
               currentKeyLayers={isMultiSelection ? [] : currentKeyLayers}
               selectedLayerId={selectedLayerId}
-              onLayerSelect={selectLayer}
-              onLayerReorder={(layerId, direction) => editingKeyId && reorderLayer(editingKeyId, layerId, direction)}
-              onLayerDelete={(layerId) => editingKeyId && deleteLayer(editingKeyId, layerId)}
+              onLayerSelect={handleLayerSelect}
+              onLayerReorder={(keyId, layerId, direction) => {
+                if (isMultiSelection) {
+                  // Multi-selection: reorder layer in all selected keys
+                  activeKeys.forEach(kId => {
+                    reorderLayer(kId, layerId, direction);
+                  });
+                } else {
+                  // Single selection: reorder layer in the editing key
+                  reorderLayer(keyId, layerId, direction);
+                }
+              }}
+              onLayerDelete={(keyId, layerId) => {
+                if (isMultiSelection) {
+                  // Multi-selection: delete layer from all selected keys
+                  activeKeys.forEach(kId => {
+                    deleteLayer(kId, layerId);
+                  });
+                } else {
+                  // Single selection: delete layer from the editing key
+                  deleteLayer(keyId, layerId);
+                }
+              }}
               onAddTextLayer={() => {
-                editingKeyId && addLayer(editingKeyId, 'text');
+                if (isMultiSelection) {
+                  // Multi-selection: add layer to all selected keys
+                  activeKeys.forEach(keyId => {
+                    addLayer(keyId, 'text');
+                  });
+                } else if (editingKeyId) {
+                  // Single selection: add layer to editing key
+                  addLayer(editingKeyId, 'text');
+                }
               }}
               onAddImageLayer={() => {
-                editingKeyId && addLayer(editingKeyId, 'image');
+                if (isMultiSelection) {
+                  // Multi-selection: add layer to all selected keys
+                  activeKeys.forEach(keyId => {
+                    addLayer(keyId, 'image');
+                  });
+                } else if (editingKeyId) {
+                  // Single selection: add layer to editing key
+                  addLayer(editingKeyId, 'image');
+                }
               }}
                 onAddIconLayer={() => {
-                  if (editingKeyId) {
+                  if (isMultiSelection) {
+                    // Multi-selection: add layer to all selected keys
+                    activeKeys.forEach(keyId => {
+                      addLayer(keyId, 'icon' as any);
+                    });
+                  } else if (editingKeyId) {
+                    // Single selection: add layer to editing key
                     addLayer(editingKeyId, 'icon' as any);
                   }
                 }}
@@ -989,6 +1092,19 @@ const Index = () => {
                 }}
                 currentTheme={config.currentTheme}
                 onThemeChange={applyTheme}
+                onLayerDoubleClick={(layer) => {
+                  // Select the layer first
+                  handleLayerSelect(layer.id);
+                  
+                  // Open the appropriate toolbar section based on layer type
+                  if (layer.type === 'text') {
+                    setToolbarOpenSection('text');
+                  } else if (layer.type === 'icon') {
+                    setToolbarOpenSection('icon');
+                  } else if (layer.type === 'image') {
+                    setToolbarOpenSection('image');
+                  }
+                }}
             />
           </div>
 
@@ -1020,6 +1136,7 @@ const Index = () => {
                     onBatchStart={beginBatch}
                     onBatchEnd={endBatch}
                     toolbarSettings={uiSettings?.toolbar}
+                    openSection={toolbarOpenSection}
                   />
                 </div>
               </div>
@@ -1054,15 +1171,63 @@ const Index = () => {
                       selectedLayerId={selectedLayerId}
                       onLayerSelect={handleLayerSelect}
                       onAddTextLayer={() => {
-                        editingKeyId && addLayer(editingKeyId, 'text');
+                        if (isMultiSelection) {
+                          // Multi-selection: add layer to all selected keys
+                          activeKeys.forEach(keyId => {
+                            addLayer(keyId, 'text');
+                          });
+                        } else if (editingKeyId) {
+                          // Single selection: add layer to editing key
+                          addLayer(editingKeyId, 'text');
+                        }
                       }}
                       onAddImageLayer={() => {
-                        editingKeyId && addLayer(editingKeyId, 'image');
+                        if (isMultiSelection) {
+                          // Multi-selection: add layer to all selected keys
+                          activeKeys.forEach(keyId => {
+                            addLayer(keyId, 'image');
+                          });
+                        } else if (editingKeyId) {
+                          // Single selection: add layer to editing key
+                          addLayer(editingKeyId, 'image');
+                        }
                       }}
                       onAddIconLayer={() => {
-                        if (editingKeyId) {
+                        if (isMultiSelection) {
+                          // Multi-selection: add layer to all selected keys
+                          activeKeys.forEach(keyId => {
+                            addLayer(keyId, 'icon' as any);
+                          });
+                        } else if (editingKeyId) {
+                          // Single selection: add layer to editing key
                           addLayer(editingKeyId, 'icon' as any);
                         }
+                      }}
+                      onLayerTypeChange={(layerId, newType) => {
+                        if (editingKeyId) {
+                          // Get current layer to preserve content if possible
+                          const currentLayer = currentKeyLayers.find(l => l.id === layerId);
+                          const updates: Partial<KeycapLayer> = { type: newType };
+                          
+                          // If changing to text and no content, set default
+                          if (newType === 'text' && !currentLayer?.content) {
+                            updates.content = 'New Text';
+                          }
+                          // If changing to icon/image and content doesn't match type, clear it
+                          else if (newType === 'icon' && currentLayer?.type !== 'icon') {
+                            updates.content = undefined;
+                          }
+                          else if (newType === 'image' && currentLayer?.type !== 'image') {
+                            updates.content = undefined;
+                          }
+                          
+                          updateLayer(editingKeyId, layerId, updates);
+                        }
+                      }}
+                      onOpenToolbarSection={(section) => {
+                        setToolbarOpenSection(section);
+                        // Reset after a short delay to allow the section to open
+                        setTimeout(() => setToolbarOpenSection(null), 100);
                       }}
                       currentTheme={config.currentTheme}
                       view3D={view3D}

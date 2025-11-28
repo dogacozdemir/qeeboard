@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet, apiPut, apiDelete, apiPost, getUserIdFromToken, getPreviewUrl } from '../lib/api'
 import { Header, Footer } from '../components/Layout'
@@ -56,7 +56,7 @@ export default function CartPage() {
     }
   }
 
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     if (!userId) return
     try {
       const res = await apiGet(`/api/addresses?userId=${userId}`)
@@ -67,33 +67,78 @@ export default function CartPage() {
       setShippingAddressId(prev => prev ?? ship?.id ?? null)
       setBillingAddressId(prev => prev ?? bill?.id ?? null)
     } catch {}
+  }, [userId])
+
+  const loadUser = async () => {
+    if (!userId) return
+    try {
+      const res = await apiGet(`/api/users/${userId}`)
+      const user = res.data
+      if (user) {
+        // Parse name into firstName and lastName
+        const nameParts = (user.name || '').trim().split(/\s+/)
+        const fName = nameParts[0] || ''
+        const lName = nameParts.slice(1).join(' ') || ''
+        setFirstName(fName)
+        setLastName(lName)
+        setEmail(user.email || '')
+        setPhone(user.phone || '')
+      }
+    } catch {}
   }
 
-  useEffect(() => { loadCart(); loadAddresses() }, [])
+  useEffect(() => { loadCart(); loadAddresses(); loadUser() }, [])
   
-  // İkinci sayfada adresleri otomatik olarak edit modunda aç
+  // İkinci sayfada adresleri otomatik olarak yükle ve form alanlarına doldur
   useEffect(() => {
-    if (page === 2 && addresses.length > 0) {
-      const shippingAddrs = addresses.filter(a => a.kind === 'SHIPPING')
-      const billingAddrs = addresses.filter(a => a.kind === 'BILLING')
+    if (page === 2 && userId) {
+      // User bilgilerini yükle
+      loadUser()
       
-      // İlk teslimat adresini edit modunda aç
-      const firstShipping = shippingAddrs[0]
-      if (firstShipping && !editingShippingAddrId) {
-        setEditingShippingAddrId(firstShipping.id)
-        setShippingAddressId(firstShipping.id)
-      }
-      
-      // Fatura adresini edit modunda aç
-      if (!useSameAddress) {
-        const firstBilling = billingAddrs[0]
-        if (firstBilling && !editingBillingAddrId) {
-          setEditingBillingAddrId(firstBilling.id)
-          setBillingAddressId(firstBilling.id)
+      // Address bilgilerini yükle ve form alanlarına doldur
+      if (addresses.length > 0) {
+        const shippingAddrs = addresses.filter(a => a.kind === 'SHIPPING')
+        const billingAddrs = addresses.filter(a => a.kind === 'BILLING')
+        
+        // İlk teslimat adresini form alanlarına doldur
+        const firstShipping = shippingAddrs[0]
+        if (firstShipping) {
+          const nameParts = (firstShipping.fullName || '').trim().split(/\s+/)
+          const fName = nameParts[0] || ''
+          const lName = nameParts.slice(1).join(' ') || ''
+          setFirstName(fName)
+          setLastName(lName)
+          setAddress(firstShipping.line1 || '')
+          setCompany(firstShipping.line2 || '')
+          setPostalCode(firstShipping.postalCode || '')
+          setCity(firstShipping.city || '')
+          setCountry(firstShipping.country || 'Türkiye')
+          setState(firstShipping.state || '')
+          if (firstShipping.phone) setPhone(firstShipping.phone)
+          setShippingAddressId(firstShipping.id)
+        }
+        
+        // Fatura adresini form alanlarına doldur
+        if (!useSameAddress) {
+          const firstBilling = billingAddrs[0]
+          if (firstBilling) {
+            const nameParts = (firstBilling.fullName || '').trim().split(/\s+/)
+            const fName = nameParts[0] || ''
+            const lName = nameParts.slice(1).join(' ') || ''
+            setBillingFirstName(fName)
+            setBillingLastName(lName)
+            setBillingAddress(firstBilling.line1 || '')
+            setBillingCompany(firstBilling.line2 || '')
+            setBillingPostalCode(firstBilling.postalCode || '')
+            setBillingCity(firstBilling.city || '')
+            setBillingCountry(firstBilling.country || 'Türkiye')
+            setBillingState(firstBilling.state || '')
+            setBillingAddressId(firstBilling.id)
+          }
         }
       }
     }
-  }, [page, addresses.length, shippingAddressId, useSameAddress, editingShippingAddrId, editingBillingAddrId])
+  }, [page, addresses.length, userId, useSameAddress])
   
   // Reset active tab when items change
   useEffect(() => {
@@ -128,12 +173,34 @@ export default function CartPage() {
 
   const checkout = async () => {
     if (!userId) return
-    if (!shippingAddressId) { alert('Lütfen teslimat adresi seçin.'); return }
+    
+    // Ensure all data is saved before checkout
+    await saveUserInfo()
+    await saveShippingAddress()
+    if (!useSameAddress) {
+      await saveBillingAddress()
+    }
+    
+    // Wait a bit for addresses to be created/updated
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Reload addresses to get latest IDs
+    await loadAddresses()
+    
+    // Get the final address IDs
+    const finalShippingId = shippingAddressId
+    const finalBillingId = useSameAddress ? finalShippingId : (billingAddressId || finalShippingId)
+    
+    if (!finalShippingId) { 
+      alert('Lütfen teslimat adresi bilgilerini doldurun.'); 
+      return 
+    }
+    
     try {
       const res = await apiPost('/api/orders/checkout', {
         userId,
-        shippingAddressId,
-        billingAddressId: useSameAddress ? shippingAddressId : (billingAddressId || shippingAddressId),
+        shippingAddressId: finalShippingId,
+        billingAddressId: finalBillingId,
       })
       if (res?.success !== false) {
         alert('Siparişiniz oluşturuldu!')
@@ -165,6 +232,146 @@ export default function CartPage() {
   const [billingCity, setBillingCity] = useState<string>('')
   const [billingCountry, setBillingCountry] = useState<string>('Türkiye')
   const [billingState, setBillingState] = useState<string>('')
+
+  // Debounce timers for auto-saving
+  const userUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+  const shippingAddressUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+  const billingAddressUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // Auto-save user information when name, email, or phone changes
+  const saveUserInfo = useCallback(async () => {
+    if (!userId) return
+    try {
+      const fullName = `${firstName} ${lastName}`.trim()
+      await apiPut(`/api/users/${userId}`, {
+        name: fullName,
+        email: email,
+        phone: phone || null
+      })
+    } catch (error) {
+      console.error('Error saving user info:', error)
+    }
+  }, [userId, firstName, lastName, email, phone])
+
+  // Auto-save shipping address
+  const saveShippingAddress = useCallback(async () => {
+    if (!userId) return
+    try {
+      const fullName = `${firstName} ${lastName}`.trim()
+      if (!fullName || !address || !city || !postalCode || !country) return
+
+      const addressData = {
+        userId,
+        kind: 'SHIPPING' as const,
+        fullName,
+        line1: address,
+        line2: company || null,
+        city,
+        state: state || null,
+        postalCode,
+        country,
+        phone: phone || null
+      }
+
+      if (shippingAddressId) {
+        // Update existing address
+        await apiPut(`/api/addresses/${shippingAddressId}`, addressData)
+      } else {
+        // Create new address
+        const res = await apiPost('/api/addresses', addressData)
+        if (res?.data?.id) {
+          setShippingAddressId(res.data.id)
+          await loadAddresses()
+        }
+      }
+    } catch (error) {
+      console.error('Error saving shipping address:', error)
+    }
+  }, [userId, firstName, lastName, address, company, city, postalCode, country, state, phone, shippingAddressId, loadAddresses])
+
+  // Auto-save billing address
+  const saveBillingAddress = useCallback(async () => {
+    if (!userId || useSameAddress) return
+    try {
+      const fullName = `${billingFirstName} ${billingLastName}`.trim()
+      if (!fullName || !billingAddress || !billingCity || !billingPostalCode || !billingCountry) return
+
+      const addressData = {
+        userId,
+        kind: 'BILLING' as const,
+        fullName,
+        line1: billingAddress,
+        line2: billingCompany || null,
+        city: billingCity,
+        state: billingState || null,
+        postalCode: billingPostalCode,
+        country: billingCountry,
+        phone: phone || null
+      }
+
+      if (billingAddressId) {
+        // Update existing address
+        await apiPut(`/api/addresses/${billingAddressId}`, addressData)
+      } else {
+        // Create new address
+        const res = await apiPost('/api/addresses', addressData)
+        if (res?.data?.id) {
+          setBillingAddressId(res.data.id)
+          await loadAddresses()
+        }
+      }
+    } catch (error) {
+      console.error('Error saving billing address:', error)
+    }
+  }, [userId, useSameAddress, billingFirstName, billingLastName, billingAddress, billingCompany, billingCity, billingPostalCode, billingCountry, billingState, billingAddressId, phone, loadAddresses])
+
+  // Debounced user update
+  useEffect(() => {
+    if (page !== 2 || !userId) return
+    if (userUpdateTimer.current) {
+      clearTimeout(userUpdateTimer.current)
+    }
+    userUpdateTimer.current = setTimeout(() => {
+      saveUserInfo()
+    }, 1000) // 1 second debounce
+    return () => {
+      if (userUpdateTimer.current) {
+        clearTimeout(userUpdateTimer.current)
+      }
+    }
+  }, [saveUserInfo, page, userId])
+
+  // Debounced shipping address update
+  useEffect(() => {
+    if (page !== 2 || !userId) return
+    if (shippingAddressUpdateTimer.current) {
+      clearTimeout(shippingAddressUpdateTimer.current)
+    }
+    shippingAddressUpdateTimer.current = setTimeout(() => {
+      saveShippingAddress()
+    }, 1000) // 1 second debounce
+    return () => {
+      if (shippingAddressUpdateTimer.current) {
+        clearTimeout(shippingAddressUpdateTimer.current)
+      }
+    }
+  }, [saveShippingAddress, page, userId])
+
+  // Debounced billing address update
+  useEffect(() => {
+    if (page !== 2 || !userId || useSameAddress) return
+    if (billingAddressUpdateTimer.current) {
+      clearTimeout(billingAddressUpdateTimer.current)
+    }
+    billingAddressUpdateTimer.current = setTimeout(() => {
+      saveBillingAddress()
+    }, 1000) // 1 second debounce
+    return () => {
+      if (billingAddressUpdateTimer.current) {
+        clearTimeout(billingAddressUpdateTimer.current)
+      }
+    }
+  }, [saveBillingAddress, useSameAddress, page, userId])
 
   // Removed unused shippingAddresses - addresses are accessed directly when needed
 

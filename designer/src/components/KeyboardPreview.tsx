@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { KeyboardLayout, KeycapLayer } from '@/types/keyboard';
 import SVGKeycapPreview from './SVGKeycapPreview';
 import KeyLayerPreview from './KeyLayerPreview';
-import { Monitor, Box } from 'lucide-react';
+import { Monitor, Box, RefreshCw } from 'lucide-react';
 
 interface KeyboardPreviewProps {
   layout: KeyboardLayout;
@@ -18,6 +18,8 @@ interface KeyboardPreviewProps {
   onAddTextLayer?: () => void;
   onAddImageLayer?: () => void;
   onAddIconLayer?: () => void;
+  onLayerTypeChange?: (layerId: string, newType: 'text' | 'image' | 'icon') => void;
+  onOpenToolbarSection?: (section: 'text' | 'icon' | 'image') => void;
   currentTheme?: string;
   fitToContainer?: boolean;
   readOnly?: boolean;
@@ -42,6 +44,8 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
   onAddTextLayer,
   onAddImageLayer,
   onAddIconLayer,
+  onLayerTypeChange,
+  onOpenToolbarSection,
   currentTheme,
   fitToContainer = false,
   readOnly = false,
@@ -233,15 +237,17 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
       {/* Zoom and Pan Controls */}
       {!fitToContainer && (
       <div className="absolute top-28 right-4 z-10 flex flex-col gap-2">
-        <button
-          onClick={resetView}
-          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg border border-gray-600 transition-colors"
-          title="Reset View (Ctrl+0)"
-        >
-          Reset
-        </button>
-        <div className="px-3 py-2 bg-gray-800 text-white text-sm rounded-lg border border-gray-600">
-          {Math.round(zoom * 100)}%
+        <div className="flex items-center gap-2">
+          <button
+            onClick={resetView}
+            className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg border border-gray-600 transition-colors flex items-center justify-center"
+            title="Reset View (Ctrl+0)"
+          >
+            <RefreshCw className="h-5 w-5" />
+          </button>
+          <div className="px-3 py-2 bg-gray-800 text-white text-sm rounded-lg border border-gray-600">
+            {Math.round(zoom * 100)}%
+          </div>
         </div>
         {onView3DToggle && (
           <button
@@ -310,8 +316,6 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
                     keyRefs.current[keycap.id] = el;
                   }
                 }}
-                onClick={(event: React.MouseEvent) => { if (!readOnly) onKeySelect(keycap.id, event); }}
-                onDoubleClick={() => { if (!readOnly) onKeyDoubleClick(keycap.id); }}
                 style={{
                   position: 'absolute',
                   left: keycap.x * UNIT * BASE_SCALE,
@@ -326,8 +330,12 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
                   selected={selectedKeys.includes(keycap.id)}
                   previewSelected={previewKeys.includes(keycap.id)}
                   scale={BASE_SCALE}
-                  onClick={(event: React.MouseEvent) => onKeySelect(keycap.id, event)}
-                  onDoubleClick={() => onKeyDoubleClick(keycap.id)}
+                  onClick={(event: React.MouseEvent) => {
+                    if (!readOnly) onKeySelect(keycap.id, event);
+                  }}
+                  onDoubleClick={() => {
+                    if (!readOnly) onKeyDoubleClick(keycap.id);
+                  }}
                   currentTheme={currentTheme}
                 />
               </div>
@@ -335,7 +343,6 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
 
             {/* Layer Preview */}
             {editingKeyId &&
-              currentKeyLayers.length > 0 &&
               onLayerSelect &&
               (() => {
                 const selectedKey = layout.keys.find(
@@ -352,6 +359,8 @@ const KeyboardPreview: React.FC<KeyboardPreviewProps> = ({
                     onAddTextLayer={onAddTextLayer}
                     onAddImageLayer={onAddImageLayer}
                     onAddIconLayer={onAddIconLayer}
+                    onLayerTypeChange={onLayerTypeChange}
+                    onOpenToolbarSection={onOpenToolbarSection}
                     keyPosition={{
                       x: selectedKey.x * UNIT * BASE_SCALE,
                       y: selectedKey.y * UNIT * BASE_SCALE,

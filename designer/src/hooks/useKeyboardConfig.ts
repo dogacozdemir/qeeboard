@@ -301,6 +301,21 @@ export const useKeyboardConfig = () => {
     });
   }, []);
 
+  const renameGroup = useCallback((oldName: string, newName: string) => {
+    if (oldName === newName || !newName.trim()) return;
+    setConfigWithHistory(prev => {
+      const newGroups = { ...prev.groups };
+      if (newGroups[oldName]) {
+        newGroups[newName.trim()] = newGroups[oldName];
+        delete newGroups[oldName];
+      }
+      return {
+        ...prev,
+        groups: newGroups,
+      };
+    });
+  }, []);
+
   const resetLayout = useCallback(() => {
     setConfigWithHistory(prev => {
       const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
@@ -326,7 +341,8 @@ export const useKeyboardConfig = () => {
 
     setConfigWithHistory(prev => {
       const layout = { ...prev.layout };
-      const newGroups: Record<string, string[]> = { ...prev.groups };
+      // Start with empty groups - clear previous theme groups
+      const newGroups: Record<string, string[]> = {};
       
       if (theme.type === 'solid') {
         // Solid theme: tüm tuşlara aynı renk
@@ -524,6 +540,7 @@ export const useKeyboardConfig = () => {
     saveGroup,
     loadGroup,
     deleteGroup,
+    renameGroup,
     resetLayout,
     // Layer management
     addLayer,

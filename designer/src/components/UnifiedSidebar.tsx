@@ -32,14 +32,15 @@ interface UnifiedSidebarProps {
   onSaveGroup: (groupName: string, keyIds: string[]) => void;
   onLoadGroup: (groupName: string) => void;
   onDeleteGroup: (groupName: string) => void;
+  onRenameGroup?: (oldName: string, newName: string) => void;
 
   // Layer management props
   editingKeyId?: string | null;
   currentKeyLayers?: KeycapLayer[];
   selectedLayerId?: string | null;
   onLayerSelect?: (layerId: string) => void;
-  onLayerReorder?: (layerId: string, direction: 'up' | 'down') => void;
-  onLayerDelete?: (layerId: string) => void;
+  onLayerReorder?: (keyId: string, layerId: string, direction: 'up' | 'down') => void;
+  onLayerDelete?: (keyId: string, layerId: string) => void;
   onAddTextLayer?: () => void;
   onAddImageLayer?: () => void;
   onAddIconLayer?: () => void;
@@ -52,6 +53,7 @@ interface UnifiedSidebarProps {
   onSelectTextLayers?: () => void;
   onSelectIconLayers?: () => void;
   onSelectImageLayers?: () => void;
+  onLayerDoubleClick?: (layer: KeycapLayer) => void;
   // Theme props
   currentTheme?: ThemeType;
   onThemeChange?: (themeId: ThemeType) => void;
@@ -70,6 +72,7 @@ const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   onSaveGroup,
   onLoadGroup,
   onDeleteGroup,
+  onRenameGroup,
   editingKeyId,
   currentKeyLayers = [],
   selectedLayerId,
@@ -87,6 +90,7 @@ const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   onSelectTextLayers,
   onSelectIconLayers,
   onSelectImageLayers,
+  onLayerDoubleClick,
   currentTheme,
   onThemeChange,
 }) => {
@@ -139,9 +143,19 @@ const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           <LayerManager
             layers={currentKeyLayers}
             selectedLayerId={selectedLayerId}
-            onLayerSelect={onLayerSelect}
-            onLayerReorder={onLayerReorder}
-            onLayerDelete={onLayerDelete}
+            editingKeyId={editingKeyId}
+            onLayerSelect={onLayerSelect ? (layerId: string) => {
+              // Call the provided handler which should update both selectedLayerId and selectedLayerIds
+              onLayerSelect(layerId);
+            } : undefined}
+            onLayerReorder={onLayerReorder ? (keyId, layerId, direction) => {
+              // Pass keyId and layerId directly - Index.tsx will handle multi-selection
+              onLayerReorder(keyId, layerId, direction);
+            } : undefined}
+            onLayerDelete={onLayerDelete ? (keyId, layerId) => {
+              // Pass keyId and layerId directly - Index.tsx will handle multi-selection
+              onLayerDelete(keyId, layerId);
+            } : undefined}
             onAddTextLayer={onAddTextLayer}
             onAddImageLayer={onAddImageLayer}
             onAddIconLayer={onAddIconLayer}
@@ -154,6 +168,7 @@ const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             onSelectTextLayers={onSelectTextLayers}
             onSelectIconLayers={onSelectIconLayers}
             onSelectImageLayers={onSelectImageLayers}
+            onLayerDoubleClick={onLayerDoubleClick}
           />
         </div>
 
@@ -166,6 +181,7 @@ const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           onSaveGroup={onSaveGroup}
           onLoadGroup={onLoadGroup}
           onDeleteGroup={onDeleteGroup}
+          onRenameGroup={onRenameGroup}
         />
 
       </div>

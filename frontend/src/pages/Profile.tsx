@@ -36,6 +36,9 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [editingAddrId, setEditingAddrId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: '' })
+  const [addingNewAddress, setAddingNewAddress] = useState<boolean>(false)
+  const [newAddressKind, setNewAddressKind] = useState<'SHIPPING' | 'BILLING'>('SHIPPING')
+  const [newAddressForm, setNewAddressForm] = useState<{ fullName: string; line1: string; line2?: string; city: string; postalCode: string; country: string; phone?: string }>({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: 'Türkiye', phone: '' })
 
   const handleReOrder = async (listingId: number, quantity: number = 1) => {
     const userId = getUserIdFromToken()
@@ -151,8 +154,147 @@ export default function ProfilePage() {
                   <input value={user?.phone || ''} readOnly placeholder={user?.phone ? '' : 'Telefon bilgisi yok'} />
                 </div>
                 <div className="full-span">
-                  <label>Adresler</label>
-                  {addresses.length > 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>Adresler</label>
+                    {!addingNewAddress && (
+                      <button 
+                        className="btn" 
+                        onClick={() => {
+                          setAddingNewAddress(true)
+                          setNewAddressForm({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: 'Türkiye', phone: '' })
+                          setNewAddressKind('SHIPPING')
+                        }}
+                        style={{ padding: '8px 16px', fontSize: '14px' }}
+                      >
+                        + Adres Ekle
+                      </button>
+                    )}
+                  </div>
+                  
+                  {addingNewAddress && (
+                    <div className="list-item" style={{ marginBottom: '16px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="title" style={{ marginBottom: '16px' }}>Yeni Adres Ekle</div>
+                        <div className="grid2">
+                          <div>
+                            <label>Adres Tipi <span style={{ color: '#ef4444' }}>*</span></label>
+                            <select 
+                              value={newAddressKind} 
+                              onChange={e => setNewAddressKind(e.target.value as 'SHIPPING' | 'BILLING')}
+                              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #e5e7eb' }}
+                            >
+                              <option value="SHIPPING">Teslimat Adresi</option>
+                              <option value="BILLING">Fatura Adresi</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label>Telefon</label>
+                            <input 
+                              value={newAddressForm.phone || ''} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, phone: e.target.value })} 
+                              placeholder="Telefon (opsiyonel)"
+                            />
+                          </div>
+                          <div>
+                            <label>Ad Soyad <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input 
+                              value={newAddressForm.fullName} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, fullName: e.target.value })} 
+                              placeholder="Ad Soyad"
+                            />
+                          </div>
+                          <div>
+                            <label>Adres Satırı <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input 
+                              value={newAddressForm.line1} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, line1: e.target.value })} 
+                              placeholder="Adres Satırı"
+                            />
+                          </div>
+                          <div>
+                            <label>Adres Satırı 2</label>
+                            <input 
+                              value={newAddressForm.line2 || ''} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, line2: e.target.value })} 
+                              placeholder="Adres Satırı 2 (opsiyonel)"
+                            />
+                          </div>
+                          <div>
+                            <label>Şehir <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input 
+                              value={newAddressForm.city} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, city: e.target.value })} 
+                              placeholder="Şehir"
+                            />
+                          </div>
+                          <div>
+                            <label>Posta Kodu <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input 
+                              value={newAddressForm.postalCode} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, postalCode: e.target.value })} 
+                              placeholder="Posta Kodu"
+                            />
+                          </div>
+                          <div>
+                            <label>Ülke <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input 
+                              value={newAddressForm.country} 
+                              onChange={e => setNewAddressForm({ ...newAddressForm, country: e.target.value })} 
+                              placeholder="Ülke"
+                            />
+                          </div>
+                          <div className="full-span" style={{ display: 'flex', gap: 8, marginTop: '8px' }}>
+                            <button 
+                              className="btn" 
+                              onClick={async () => {
+                                const userId = getUserIdFromToken()
+                                if (!userId) return
+                                
+                                if (!newAddressForm.fullName || !newAddressForm.line1 || !newAddressForm.city || !newAddressForm.postalCode || !newAddressForm.country) {
+                                  alert('Lütfen tüm zorunlu alanları doldurun.')
+                                  return
+                                }
+                                
+                                try {
+                                  await apiPost('/api/addresses', {
+                                    userId,
+                                    kind: newAddressKind,
+                                    fullName: newAddressForm.fullName,
+                                    line1: newAddressForm.line1,
+                                    line2: newAddressForm.line2 || null,
+                                    city: newAddressForm.city,
+                                    postalCode: newAddressForm.postalCode,
+                                    country: newAddressForm.country,
+                                    phone: newAddressForm.phone || null
+                                  })
+                                  const res = await apiGet(`/api/addresses?userId=${userId}`)
+                                  setAddresses(res.data ?? [])
+                                  setAddingNewAddress(false)
+                                  setNewAddressForm({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: 'Türkiye', phone: '' })
+                                } catch (e) { 
+                                  alert('Adres ekleme başarısız') 
+                                }
+                              }}
+                            >
+                              Kaydet
+                            </button>
+                            <button 
+                              className="btn" 
+                              onClick={() => {
+                                setAddingNewAddress(false)
+                                setNewAddressForm({ fullName: '', line1: '', line2: '', city: '', postalCode: '', country: 'Türkiye', phone: '' })
+                              }} 
+                              style={{ background: '#9ca3af' }}
+                            >
+                              Vazgeç
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {addresses.length > 0 && (
                     <div className="list">
                       {addresses.map((addr) => (
                         <div key={addr.id} className="list-item">
@@ -223,8 +365,12 @@ export default function ProfilePage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <input value="" readOnly placeholder="Adres bulunamadı" />
+                  )}
+                  
+                  {addresses.length === 0 && !addingNewAddress && (
+                    <div className="muted" style={{ padding: '16px', textAlign: 'center', border: '1px dashed #e5e7eb', borderRadius: '8px' }}>
+                      Henüz adres eklenmemiş. Yeni adres eklemek için yukarıdaki butona tıklayın.
+                    </div>
                   )}
                 </div>
               </div>
@@ -242,6 +388,42 @@ export default function ProfilePage() {
                       <div className="title">{c.name}</div>
                       <div className="muted">{c.description ?? 'Açıklama yok'}</div>
                       <div className="muted" style={{ fontSize: '12px', marginTop: '4px' }}>Oluşturulma: {new Date(c.createdAt).toLocaleDateString('tr-TR', { day:'2-digit', month:'long', year:'numeric' })}</div>
+                    </div>
+                    <div className="addr-actions">
+                      <button 
+                        className="icon-btn small" 
+                        aria-label="Düzenle" 
+                        onClick={() => {
+                          navigate(`/designer?configId=${c.id}`)
+                        }}
+                        title="Düzenle"
+                      >
+                        <svg className="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+                          <path d="M4 21h4l11-11-4-4L4 17v4Z" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      </button>
+                      <button 
+                        className="icon-btn small" 
+                        aria-label="Sil" 
+                        onClick={async () => {
+                          if (!confirm(`${c.name} tasarımını silmek istediğinize emin misiniz?`)) return
+                          try {
+                            await apiDelete(`/api/configs/${c.id}`)
+                            const userId = getUserIdFromToken()
+                            if (!userId) return
+                            const res = await apiGet(`/api/users/${userId}`)
+                            const u = res.data
+                            setConfigs(u.configs ?? [])
+                          } catch (e) { 
+                            alert('Tasarım silinirken bir hata oluştu.') 
+                          }
+                        }}
+                        title="Sil"
+                      >
+                        <svg className="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+                          <path d="M3 6h18M9 6V4h6v2m-7 4v10m4-10v10m4-10v10M5 6l1 16h12l1-16" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 ))}

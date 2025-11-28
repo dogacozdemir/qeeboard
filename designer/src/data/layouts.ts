@@ -469,7 +469,7 @@ const generateFullISOLayout = (): KeyboardLayout => {
 const build65_ANSI_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0;
   const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => {
-    keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
+    keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
   };
   // Row indices y=0..4
   let x = 0; let y = 0;
@@ -492,7 +492,7 @@ const build65_ANSI_helper = (): KeyboardLayout => {
 const build65_ISO_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0;
   const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => {
-    keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
+    keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
   };
   // Top row
   let x = 0; let y = 0;
@@ -533,8 +533,8 @@ const build65_2_ANSI_helper = (): KeyboardLayout => {
       height: h,
       x,
       y,
-      color: '#2D3748',
-      textColor: '#FFFFFF',
+      color: '#FFFFFF',
+      textColor: '#000000',
       layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }],
     });
   };
@@ -573,7 +573,7 @@ const build65_2_ANSI_helper = (): KeyboardLayout => {
 
 const build75_1_ANSI_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0; let maxX = 0;
-  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
+  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
   let x = 0; let y = 0; ['ESC','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','PrtSc','ScrLk','Insert'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; });
   y = 1; x = 0; ['~','1','2','3','4','5','6','7','8','9','0','-','='].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('Backspace', x, y, 2); x += 2; addKey('Del', x, y, 1);
   y = 2; x = 0; addKey('Tab', x, y, 1.5); x += 1.5; ['Q','W','E','R','T','Y','U','I','O','P','[',']'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('\\\\', x, y, 1.5); x += 1.5; addKey('Home', x, y, 1);
@@ -585,7 +585,7 @@ const build75_1_ANSI_helper = (): KeyboardLayout => {
 
 const build75_1_ISO_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0; let maxX = 0; let navX = -1;
-  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
+  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
   let x = 0; let y = 0; ['ESC','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','PrtSc','ScrLk','Insert'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; });
   y = 1; x = 0; ['~','1','2','3','4','5','6','7','8','9','0','-','='].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('Backspace', x, y, 2); x += 2; addKey('Del', x, y, 1);
   // Row with Tab: true ISO Enter top piece at the row end (height 2)
@@ -618,8 +618,8 @@ const build65_2_ISO_helper = (): KeyboardLayout => {
       height: h,
       x,
       y,
-      color: '#2D3748',
-      textColor: '#FFFFFF',
+      color: '#FFFFFF',
+      textColor: '#000000',
       layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }],
     });
   };
@@ -667,7 +667,7 @@ const build65_2_ISO_helper = (): KeyboardLayout => {
 
 const build75_2_ANSI_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0; let maxX = 0;
-  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
+  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
   let x = 0; let y = 0; ['ESC','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','PrtSc','ScrLk','Insert'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; });
   y = 1; x = 0; ['~','1','2','3','4','5','6','7','8','9','0','-','='].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('Backspace', x, y, 2); x += 2; addKey('Del', x, y, 1);
   y = 2; x = 0; addKey('Tab', x, y, 1.5); x += 1.5; ['Q','W','E','R','T','Y','U','I','O','P','[',']'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('\\\\', x, y, 1.5); x += 1.5; addKey('Home', x, y, 1);
@@ -680,7 +680,7 @@ const build75_2_ANSI_helper = (): KeyboardLayout => {
 
 const build75_2_ISO_helper = (): KeyboardLayout => {
   const keys: any[] = []; let keyId = 0; let maxX = 0; let navX = -1;
-  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
+  const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => { keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] }); if (x + w > maxX) maxX = x + w; };
   let x = 0; let y = 0; ['ESC','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','PrtSc','ScrLk','Insert'].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; });
   y = 1; x = 0; ['~','1','2','3','4','5','6','7','8','9','0','-','='].forEach(lbl => { addKey(lbl, x, y, 1); x += 1; }); addKey('Backspace', x, y, 2); x += 2; addKey('Del', x, y, 1);
   // Row with Tab: ISO Enter top piece at row end (height 2), no trailing backslash
@@ -777,8 +777,8 @@ export const keyboardLayouts: Record<string, KeyboardLayout> = {
         height: h,
         x,
         y,
-        color: '#2D3748',
-        textColor: '#FFFFFF',
+        color: '#FFFFFF',
+        textColor: '#000000',
         layers: [{
           id: `layer-${keyId}-0`,
           type: 'text',
@@ -861,8 +861,8 @@ export const keyboardLayouts: Record<string, KeyboardLayout> = {
         height: h,
         x,
         y,
-        color: '#2D3748',
-        textColor: '#FFFFFF',
+        color: '#FFFFFF',
+        textColor: '#000000',
         layers: [{
           id: `layer-${keyId}-0`,
           type: 'text',
@@ -940,8 +940,8 @@ export const keyboardLayouts: Record<string, KeyboardLayout> = {
         height: h,
         x,
         y,
-        color: '#2D3748',
-        textColor: '#FFFFFF',
+        color: '#FFFFFF',
+        textColor: '#000000',
         layers: [{
           id: `layer-${keyId}-0`,
           type: 'text',
@@ -1004,7 +1004,7 @@ export const keyboardLayouts: Record<string, KeyboardLayout> = {
     const keys: any[] = [];
     let keyId = 0; let maxX = 0;
     const addKey = (legend: string, x: number, y: number, w = 1, h = 1) => {
-      keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#2D3748', textColor: '#FFFFFF', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
+      keys.push({ id: `key-${keyId++}`, row: y, col: Math.floor(x), width: w, height: h, x, y, color: '#FFFFFF', textColor: '#000000', layers: [{ id: `layer-${keyId}-0`, type: 'text', content: legend, alignment: 'center', verticalAlignment: 'center', offsetX: 0, offsetY: -4 }] });
       if (x + w > maxX) maxX = x + w;
     };
     let x = 0; let y = 0;

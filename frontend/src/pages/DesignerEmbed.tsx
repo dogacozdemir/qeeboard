@@ -1,7 +1,15 @@
 import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 export default function DesignerEmbed() {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [searchParams] = useSearchParams()
+  
+  // Get configId from URL and pass it to iframe
+  const configId = searchParams.get('configId')
+  const iframeSrc = configId 
+    ? `http://localhost:8080?configId=${configId}`
+    : 'http://localhost:8080'
 
   useEffect(() => {
     const sendInit = () => {
@@ -87,7 +95,7 @@ export default function DesignerEmbed() {
     <div style={{ height: '100vh', width: '100vw', background: '#f6f6f4', overflow: 'hidden', position: 'fixed', top: 0, left: 0 }}>
       <iframe 
         ref={iframeRef} 
-        src="http://localhost:8080" 
+        src={iframeSrc}
         title="Designer" 
         scrolling="no"
         style={{ border: 0, width: '100%', height: '100%', display: 'block' }} 

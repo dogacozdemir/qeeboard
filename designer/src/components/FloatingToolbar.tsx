@@ -53,6 +53,7 @@ interface FloatingToolbarProps {
   onBatchStart?: () => void;
   onBatchEnd?: () => void;
   toolbarSettings?: { mode: 'solid'|'gradient'|'default'; solid?: string; from?: string; to?: string; angle?: number };
+  openSection?: 'text' | 'icon' | 'image' | null;
 }
 
 const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
@@ -76,6 +77,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onColorCommit,
   onTextColorCommit,
   toolbarSettings,
+  openSection,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [savedColors, setSavedColors] = useState<string[]>([]);
@@ -117,6 +119,15 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const [localPositionY, setLocalPositionY] = useState([0]);
   const [localRotation, setLocalRotation] = useState([0]);
   const [localFontSize, setLocalFontSize] = useState([14]);
+  const [localImageOpacity, setLocalImageOpacity] = useState([1]);
+  // Local state for input values (to allow free typing)
+  // Use null to indicate "not editing", empty string means "currently editing/empty"
+  const [inputPositionX, setInputPositionX] = useState<string | null>(null);
+  const [inputPositionY, setInputPositionY] = useState<string | null>(null);
+  const [inputRotation, setInputRotation] = useState<string | null>(null);
+  const [inputFontSize, setInputFontSize] = useState<string | null>(null);
+  // Track the layer ID to detect when a different layer is selected
+  const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
   
   // Local state for text input
   const [localTextValue, setLocalTextValue] = useState('');
@@ -125,14 +136,77 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const isMultiselect = selectedKeysCount > 1;
 
   // Sync local state with selectedLayer when it changes
+  // Only reset input states when a different layer is selected (by ID), not when layer content changes
   useEffect(() => {
     if (selectedLayer) {
-      setLocalPositionX([selectedLayer.offsetX || 0]);
-      setLocalPositionY([selectedLayer.offsetY || 0]);
-      setLocalRotation([selectedLayer.rotation || 0]);
-      setLocalFontSize([selectedLayer.fontSize || 14]);
+      const layerId = selectedLayer.id;
+      // Only reset if it's a different layer
+      if (currentLayerId !== layerId) {
+        setLocalPositionX([selectedLayer.offsetX || 0]);
+        setLocalPositionY([selectedLayer.offsetY || 0]);
+        setLocalRotation([selectedLayer.rotation || 0]);
+        setLocalFontSize([selectedLayer.fontSize || 14]);
+        setLocalImageOpacity([selectedLayer.opacity !== undefined ? selectedLayer.opacity : 1]);
+        setInputPositionX(null);
+        setInputPositionY(null);
+        setInputRotation(null);
+        setInputFontSize(null);
+        setCurrentLayerId(layerId);
+      } else {
+        // Same layer, just update local values if not currently editing
+        if (inputPositionX === null) {
+          setLocalPositionX([selectedLayer.offsetX || 0]);
+        }
+        if (inputPositionY === null) {
+          setLocalPositionY([selectedLayer.offsetY || 0]);
+        }
+        if (inputRotation === null) {
+          setLocalRotation([selectedLayer.rotation || 0]);
+        }
+        if (inputFontSize === null) {
+          setLocalFontSize([selectedLayer.fontSize || 14]);
+        }
+        // Always sync opacity for image layers
+        if (selectedLayer.type === 'image') {
+          setLocalImageOpacity([selectedLayer.opacity !== undefined ? selectedLayer.opacity : 1]);
+        }
+      }
+    } else {
+      setCurrentLayerId(null);
     }
-  }, [selectedLayer]);
+  }, [selectedLayer, currentLayerId, inputPositionX, inputPositionY, inputRotation, inputFontSize]);
+
+  // Open section when openSection prop changes
+  useEffect(() => {
+    if (openSection === 'text') {
+      setShowTextInput(true);
+      setShowImageUpload(false);
+      setShowIconPicker(false);
+      setShowSizeSlider(false);
+      setShowColorPicker(false);
+      setShowXSlider(false);
+      setShowYSlider(false);
+      setShowRotSlider(false);
+    } else if (openSection === 'image') {
+      setShowImageUpload(true);
+      setShowTextInput(false);
+      setShowIconPicker(false);
+      setShowSizeSlider(false);
+      setShowColorPicker(false);
+      setShowXSlider(false);
+      setShowYSlider(false);
+      setShowRotSlider(false);
+    } else if (openSection === 'icon') {
+      setShowIconPicker(true);
+      setShowTextInput(false);
+      setShowImageUpload(false);
+      setShowSizeSlider(false);
+      setShowColorPicker(false);
+      setShowXSlider(false);
+      setShowYSlider(false);
+      setShowRotSlider(false);
+    }
+  }, [openSection]);
 
   // Initialize text value when text input panel opens
   useEffect(() => {
@@ -225,34 +299,38 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     const targetKeys = getTargetKeys();
     if (targetKeys.length === 0) return;
     
-    if (isMultiselect) {
+    // If selectedLayerIds is provided and has items, use it for both multi-select and single select
+    if (selectedLayerIds.length > 0 && getKeyLayers) {
       const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
-      
-      // If selectedLayerIds is provided and has items, only update those specific layers
-      if (selectedLayerIds.length > 0 && getKeyLayers) {
-        targetKeys.forEach(key => {
-          const layers = getKeyLayers(key.id);
-          layers.forEach(layer => {
-            if (selectedLayerIds.includes(layer.id)) {
-              items.push({ keyId: key.id, layerId: layer.id, updates });
-            }
-          });
+      targetKeys.forEach(key => {
+        const layers = getKeyLayers(key.id);
+        layers.forEach(layer => {
+          if (selectedLayerIds.includes(layer.id)) {
+            items.push({ keyId: key.id, layerId: layer.id, updates });
+          }
         });
-      } else {
-        // Fallback: update first layer of each key (old behavior)
+      });
+      
+      if (items.length > 0) {
+        if (onBatchLayerUpdates) onBatchLayerUpdates(items);
+        else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, updates));
+      }
+    } else if (isMultiselect) {
+      // Multi-select fallback: update first layer of each key (old behavior)
+      const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
       targetKeys.forEach(key => {
         const layers = key.layers || [];
         if (layers.length > 0) {
           items.push({ keyId: key.id, layerId: layers[0].id, updates });
         }
       });
-      }
       
       if (items.length > 0) {
         if (onBatchLayerUpdates) onBatchLayerUpdates(items);
         else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, updates));
       }
     } else if (editingKey && selectedLayer) {
+      // Single select fallback: use selectedLayer
       onLayerUpdate(editingKey.id, selectedLayer.id, updates);
     }
   };
@@ -326,6 +404,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     setLocalFontSize(value);
   }, []);
 
+  const handleImageOpacityChange = useCallback((value: number[]) => {
+    setLocalImageOpacity(value);
+    applyToMultipleKeys({ opacity: value[0] });
+  }, [applyToMultipleKeys]);
+
   const handleTextStyleChange = useCallback((style: 'bold' | 'italic' | 'underline') => {
     const currentStyle = selectedLayer?.[style] || false;
     applyToMultipleKeys({ [style]: !currentStyle });
@@ -343,16 +426,20 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             ensureLayersExist(targetKeys, 'image');
             const updates = { 
               content: event.target.result as string,
-              type: 'image' as const
+              type: 'image' as const,
+              opacity: 1 // Default opacity when uploading image
             };
             applyToMultipleKeys(updates);
           } else {
             const updates = { 
               content: event.target.result as string,
-              type: 'image' as const
+              type: 'image' as const,
+              opacity: 1 // Default opacity when uploading image
             };
             applyToMultipleKeys(updates);
           }
+          // Update local opacity state
+          setLocalImageOpacity([1]);
         }
       };
       reader.readAsDataURL(file);
@@ -645,14 +732,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
               
               {/* Transform Controls */}
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleRotationChange([(selectedLayer?.rotation || 0) + 90])}
-                className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
-              >
-                <RotateCw className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
-              </Button>
-              <Button
                 variant={selectedLayer?.mirrorX ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleMirrorChange('X', !selectedLayer?.mirrorX)}
@@ -723,11 +802,48 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             {/* Individual Slider Panels */}
             {showXSlider && (
               <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[180px]">
-                <div className="space-y-1">
-                  <Label className="text-xs text-foreground">X Position: {localPositionX[0].toFixed(1)}</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-foreground flex-1">X Position:</Label>
+                    <Input
+                      type="text"
+                      value={inputPositionX !== null ? inputPositionX : localPositionX[0].toFixed(1)}
+                      onFocus={(e) => {
+                        if (inputPositionX === null) {
+                          setInputPositionX(localPositionX[0].toFixed(1));
+                        }
+                      }}
+                      onChange={(e) => {
+                        setInputPositionX(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const trimmed = e.target.value.trim();
+                        if (trimmed === '') {
+                          setInputPositionX(null);
+                          return;
+                        }
+                        const val = parseFloat(trimmed);
+                        if (isNaN(val)) {
+                          setInputPositionX(null);
+                          return;
+                        }
+                        handlePositionXChange([val]);
+                        setInputPositionX(null);
+                      }}
+                      className="h-7 w-20 text-xs"
+                    />
+                  </div>
                   <Slider
                     value={localPositionX}
-                    onValueChange={handlePositionXChange}
+                    onValueChange={(val) => {
+                      handlePositionXChange(val);
+                      setInputPositionX(null);
+                    }}
                     max={Math.round(innerWidthPx)}
                     min={-Math.round(innerWidthPx)}
                     step={0.05}
@@ -740,11 +856,48 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             
             {showYSlider && (
               <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[180px]">
-                <div className="space-y-1">
-                  <Label className="text-xs text-foreground">Y Position: {localPositionY[0].toFixed(1)}</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-foreground flex-1">Y Position:</Label>
+                    <Input
+                      type="text"
+                      value={inputPositionY !== null ? inputPositionY : localPositionY[0].toFixed(1)}
+                      onFocus={(e) => {
+                        if (inputPositionY === null) {
+                          setInputPositionY(localPositionY[0].toFixed(1));
+                        }
+                      }}
+                      onChange={(e) => {
+                        setInputPositionY(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const trimmed = e.target.value.trim();
+                        if (trimmed === '') {
+                          setInputPositionY(null);
+                          return;
+                        }
+                        const val = parseFloat(trimmed);
+                        if (isNaN(val)) {
+                          setInputPositionY(null);
+                          return;
+                        }
+                        handlePositionYChange([val]);
+                        setInputPositionY(null);
+                      }}
+                      className="h-7 w-20 text-xs"
+                    />
+                  </div>
                   <Slider
                     value={localPositionY}
-                    onValueChange={handlePositionYChange}
+                    onValueChange={(val) => {
+                      handlePositionYChange(val);
+                      setInputPositionY(null);
+                    }}
                     max={Math.round(innerHeightPx)}
                     min={-Math.round(innerHeightPx)}
                     step={0.05}
@@ -756,11 +909,49 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             
             {showRotSlider && (
               <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[180px]">
-                <div className="space-y-1">
-                  <Label className="text-xs text-foreground">Rotation: {localRotation[0].toFixed(0)}°</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-foreground flex-1">Rotation:</Label>
+                    <Input
+                      type="text"
+                      value={inputRotation !== null ? inputRotation : localRotation[0].toFixed(0)}
+                      onFocus={(e) => {
+                        if (inputRotation === null) {
+                          setInputRotation(localRotation[0].toFixed(0));
+                        }
+                      }}
+                      onChange={(e) => {
+                        setInputRotation(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const trimmed = e.target.value.trim();
+                        if (trimmed === '') {
+                          setInputRotation(null);
+                          return;
+                        }
+                        const val = parseFloat(trimmed);
+                        if (isNaN(val)) {
+                          setInputRotation(null);
+                          return;
+                        }
+                        handleRotationChange([val]);
+                        setInputRotation(null);
+                      }}
+                      className="h-7 w-20 text-xs"
+                    />
+                    <span className="text-xs text-muted-foreground">°</span>
+                  </div>
                   <Slider
                     value={localRotation}
-                    onValueChange={handleRotationChange}
+                    onValueChange={(val) => {
+                      handleRotationChange(val);
+                      setInputRotation(null);
+                    }}
                     max={180}
                     min={-180}
                     step={0.5}
@@ -903,6 +1094,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   <PopoverContent className="p-0 w-[740px]" align="start">
                     <IconPicker
                       variant="dropdown"
+                      currentIcon={selectedLayer?.type === 'icon' && typeof selectedLayer.content === 'string' 
+                        ? selectedLayer.content.includes(':') 
+                          ? selectedLayer.content.split(':')[1] 
+                          : selectedLayer.content
+                        : undefined}
                       onIconSelect={(iconName, iconType) => {
                         const targetKeys = getTargetKeys();
                         const content = `${iconType || 'solid'}:${iconName}`;
@@ -1000,21 +1196,40 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
               {/* Image Upload Panel */}
               {showImageUpload && (
                 <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[250px]">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-foreground">Image Upload</Label>
-                    <Input
-                      id="image-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <Label htmlFor="image-upload" className="cursor-pointer flex items-center gap-1 h-6 px-2 border border-border rounded-md bg-background hover:bg-muted text-xs text-foreground">
-                      <Upload className="h-3 w-3" /> Upload Image
-                    </Label>
-                    {selectedLayer?.content && selectedLayer?.type === 'image' && selectedLayer.content.trim() !== '' && (
-                      <div className="mt-1">
-                        <img src={selectedLayer.content} alt="Preview" className="w-12 h-12 object-contain border border-border rounded" />
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-foreground">Image Upload</Label>
+                      <Input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <Label htmlFor="image-upload" className="cursor-pointer flex items-center gap-1 h-6 px-2 border border-border rounded-md bg-background hover:bg-muted text-xs text-foreground">
+                        <Upload className="h-3 w-3" /> Upload Image
+                      </Label>
+                      {selectedLayer?.content && selectedLayer?.type === 'image' && selectedLayer.content.trim() !== '' && (
+                        <div className="mt-1">
+                          <img src={selectedLayer.content} alt="Preview" className="w-12 h-12 object-contain border border-border rounded" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Transparency Slider */}
+                    {(selectedLayer?.type === 'image' || isMultiselect) && (
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-foreground">
+                          Transparency: {Math.round(localImageOpacity[0] * 100)}%
+                        </Label>
+                        <Slider
+                          value={localImageOpacity}
+                          onValueChange={handleImageOpacityChange}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          className="w-full"
+                        />
                       </div>
                     )}
                   </div>
@@ -1025,6 +1240,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
               {showIconPicker && (
                 <div className="absolute top-full mt-1 left-0 z-50">
                   <IconPicker
+                    currentIcon={selectedLayer?.type === 'icon' && typeof selectedLayer.content === 'string' 
+                      ? selectedLayer.content.includes(':') 
+                        ? selectedLayer.content.split(':')[1] 
+                        : selectedLayer.content
+                      : undefined}
                     onIconSelect={(iconName) => {
                       const targetKeys = getTargetKeys();
                       if (targetKeys.length > 0) {
@@ -1051,11 +1271,49 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
               {/* Size Slider Panel */}
               {showSizeSlider && (
                 <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[180px]">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-foreground">Font Size: {localFontSize[0].toFixed(1)}px</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-foreground flex-1">Font Size:</Label>
+                      <Input
+                        type="text"
+                        value={inputFontSize !== null ? inputFontSize : localFontSize[0].toFixed(1)}
+                        onFocus={(e) => {
+                          if (inputFontSize === null) {
+                            setInputFontSize(localFontSize[0].toFixed(1));
+                          }
+                        }}
+                        onChange={(e) => {
+                          setInputFontSize(e.target.value);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const trimmed = e.target.value.trim();
+                          if (trimmed === '') {
+                            setInputFontSize(null);
+                            return;
+                          }
+                          const val = parseFloat(trimmed);
+                          if (isNaN(val)) {
+                            setInputFontSize(null);
+                            return;
+                          }
+                          handleFontSizeChange([val]);
+                          setInputFontSize(null);
+                        }}
+                        className="h-7 w-20 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">px</span>
+                    </div>
                     <Slider
                       value={localFontSize}
-                      onValueChange={handleFontSizeChange}
+                      onValueChange={(val) => {
+                        handleFontSizeChange(val);
+                        setInputFontSize(null);
+                      }}
                       max={24}
                       min={8}
                       step={0.1}

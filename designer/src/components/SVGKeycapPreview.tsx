@@ -38,10 +38,16 @@ const SVGKeycapPreview = forwardRef<HTMLDivElement, SVGKeycapPreviewProps>(
     const isLShape = keycap.height === 2 && (keycap.width === 1.5 || keycap.width === 2);
 
     const leftExtend = Math.max(0, width * 0.3);
+    
+    const handleClick = (event: React.MouseEvent) => {
+      event.stopPropagation(); // Prevent event from bubbling to parent div
+      onClick(event);
+    };
+    
     return (
       <div
         ref={ref}
-        onClick={onClick}
+        onClick={handleClick}
         onDoubleClick={onDoubleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}

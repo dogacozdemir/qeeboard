@@ -149,7 +149,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id)
-    const { name, email } = req.body
+    const { name, email, phone } = req.body
 
     if (isNaN(userId)) {
       return res.status(400).json({
@@ -158,12 +158,14 @@ router.put('/:id', async (req, res) => {
       })
     }
 
+    const updateData: { name?: string; email?: string; phone?: string | null } = {}
+    if (name !== undefined) updateData.name = name
+    if (email !== undefined) updateData.email = email
+    if (phone !== undefined) updateData.phone = phone || null
+
     const user = await prisma.user.update({
       where: { id: userId },
-      data: {
-        name,
-        email
-      }
+      data: updateData
     })
 
     res.json({
