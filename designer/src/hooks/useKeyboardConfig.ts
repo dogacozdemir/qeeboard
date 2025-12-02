@@ -492,7 +492,7 @@ export const useKeyboardConfig = () => {
   const hydrateFromLayoutData = useCallback((layoutData: any, layoutType?: LayoutType, standard?: LayoutStandard) => {
     setConfigWithHistory(prev => {
       // Accept both shapes:
-      // 1) Full object previously saved: { layout, globalSettings, groups, currentLayoutType, layoutStandard, ... }
+      // 1) Full object previously saved: { layout, globalSettings, groups, currentLayoutType, layoutStandard, currentTheme, ... }
       // 2) Raw layout object: { id, name, keys, width, height }
       const candidateLayout = layoutData?.layout ?? layoutData
       const hasKeys = candidateLayout && Array.isArray(candidateLayout.keys)
@@ -500,13 +500,23 @@ export const useKeyboardConfig = () => {
       const nextLayout = hasKeys ? candidateLayout : prev.layout
       const nextCurrentLayoutType = (layoutData?.currentLayoutType || layoutType || prev.currentLayoutType) as LayoutType
       const nextLayoutStandard = (layoutData?.layoutStandard || standard || prev.layoutStandard) as LayoutStandard
+      
+      // Update all fields from layoutData if available
+      const nextGlobalSettings = layoutData?.globalSettings || prev.globalSettings
+      const nextGroups = layoutData?.groups || prev.groups
+      const nextCurrentTheme = layoutData?.currentTheme || prev.currentTheme
 
       return {
         ...prev,
         layout: nextLayout,
+        globalSettings: nextGlobalSettings,
+        groups: nextGroups,
         currentLayoutType: nextCurrentLayoutType,
         layoutStandard: nextLayoutStandard,
-        selectedKeys: Array.isArray(prev.selectedKeys) ? [] : [],
+        currentTheme: nextCurrentTheme,
+        // Preserve selectedKeys during remote updates to prevent deselection when collaborating
+        // Only clear selection when explicitly loading a new config (not during real-time updates)
+        selectedKeys: prev.selectedKeys,
         allLayouts: {
           ...prev.allLayouts,
         },

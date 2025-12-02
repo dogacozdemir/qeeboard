@@ -380,4 +380,60 @@ router.post('/:id/preview', async (req, res) => {
   }
 })
 
+// GET /api/configs/:id/download - Download high-quality PNG
+router.get('/:id/download', async (req, res) => {
+  try {
+    const configId = parseInt(req.params.id)
+
+    if (isNaN(configId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Config ID must be a number'
+      })
+    }
+
+    const config = await prisma.keyboardConfig.findUnique({
+      where: { id: configId },
+      select: { layoutData: true }
+    })
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Config not found'
+      })
+    }
+
+    if (!config.layoutData) {
+      return res.status(400).json({
+        success: false,
+        message: 'Config has no layout data'
+      })
+    }
+
+    // Generate high-quality PNG directly
+    const { generateHighQualityPNG } = await import('../lib/preview')
+    const pngBuffer = await generateHighQualityPNG(config.layoutData)
+
+    if (!pngBuffer) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate PNG'
+      })
+    }
+
+    // Send PNG as download
+    res.setHeader('Content-Type', 'image/png')
+    res.setHeader('Content-Disposition', `attachment; filename="qeeboard-tasarim-${configId}-${Date.now()}.png"`)
+    res.setHeader('Content-Length', pngBuffer.length)
+    res.send(pngBuffer)
+  } catch (error: any) {
+    console.error('Error generating download PNG:', error)
+    res.status(500).json({
+      success: false,
+      message: `Failed to generate PNG: ${error?.message || 'Unknown error'}`
+    })
+  }
+})
+
 export { router as configRoutes }

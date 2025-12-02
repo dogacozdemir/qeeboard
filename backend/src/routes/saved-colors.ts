@@ -3,10 +3,11 @@ import { prisma } from '../lib/db'
 
 const router = Router()
 
-// GET /api/saved-colors?userId=1 - Get all saved colors for a user
+// GET /api/saved-colors?userId=1&type=keycap - Get saved colors for a user (optionally filtered by type)
 router.get('/', async (req, res) => {
   try {
     const userId = req.query.userId ? parseInt(req.query.userId as string) : null
+    const type = req.query.type as string | undefined // "keycap" or "legend"
 
     if (!userId) {
       return res.status(400).json({
@@ -15,12 +16,18 @@ router.get('/', async (req, res) => {
       })
     }
 
+    const where: any = { userId }
+    if (type && (type === 'keycap' || type === 'legend')) {
+      where.type = type
+    }
+
     const savedColors = await prisma.userSavedColor.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         color: true,
+        type: true,
         createdAt: true
       }
     })
@@ -41,12 +48,20 @@ router.get('/', async (req, res) => {
 // POST /api/saved-colors - Save a color for a user
 router.post('/', async (req, res) => {
   try {
-    const { userId, color } = req.body
+    const { userId, color, type = 'keycap' } = req.body
 
     if (!userId || !color) {
       return res.status(400).json({
         success: false,
         message: 'userId and color are required'
+      })
+    }
+
+    // Validate type
+    if (type !== 'keycap' && type !== 'legend') {
+      return res.status(400).json({
+        success: false,
+        message: 'type must be "keycap" or "legend"'
       })
     }
 
@@ -59,12 +74,13 @@ router.post('/', async (req, res) => {
       })
     }
 
-    // Check if color already exists for this user
+    // Check if color already exists for this user and type
     const existing = await prisma.userSavedColor.findUnique({
       where: {
-        userId_color: {
+        userId_color_type: {
           userId: parseInt(userId),
-          color
+          color,
+          type
         }
       }
     })
@@ -81,11 +97,13 @@ router.post('/', async (req, res) => {
     const savedColor = await prisma.userSavedColor.create({
       data: {
         userId: parseInt(userId),
-        color
+        color,
+        type
       },
       select: {
         id: true,
         color: true,
+        type: true,
         createdAt: true
       }
     })
@@ -107,7 +125,7 @@ router.post('/', async (req, res) => {
 // DELETE /api/saved-colors - Delete a saved color for a user
 router.delete('/', async (req, res) => {
   try {
-    const { userId, color } = req.body
+    const { userId, color, type = 'keycap' } = req.body
 
     if (!userId || !color) {
       return res.status(400).json({
@@ -116,10 +134,19 @@ router.delete('/', async (req, res) => {
       })
     }
 
+    // Validate type
+    if (type !== 'keycap' && type !== 'legend') {
+      return res.status(400).json({
+        success: false,
+        message: 'type must be "keycap" or "legend"'
+      })
+    }
+
     await prisma.userSavedColor.deleteMany({
       where: {
         userId: parseInt(userId),
-        color
+        color,
+        type
       }
     })
 

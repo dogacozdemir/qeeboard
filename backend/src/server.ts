@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
+import { createServer } from 'http'
 import { configRoutes } from './routes/configs'
 import { userRoutes } from './routes/users'
 import { tagRoutes } from './routes/tags'
@@ -14,11 +15,14 @@ import { cartRoutes } from './routes/cart'
 import { orderRoutes } from './routes/orders'
 import { addressRoutes } from './routes/addresses'
 import savedColorsRoutes from './routes/saved-colors'
+import { shareRoutes } from './routes/shares'
+import { setupSocketIO } from './lib/socket'
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
+const httpServer = createServer(app)
 const PORT = process.env.PORT || 5001
 
 // Middleware
@@ -81,6 +85,7 @@ app.use('/api/cart', cartRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/addresses', addressRoutes)
 app.use('/api/saved-colors', savedColorsRoutes)
+app.use('/api/shares', shareRoutes)
 
 // 404 handler
 app.use((req, res) => {
@@ -99,8 +104,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   })
 })
 
-app.listen(PORT, () => {
+// Setup Socket.IO
+setupSocketIO(httpServer)
+
+httpServer.listen(PORT, () => {
   console.log(`🚀 Backend server running on port ${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/health`)
   console.log(`🔗 API base: http://localhost:${PORT}/api`)
+  console.log(`🔌 WebSocket server ready`)
 })

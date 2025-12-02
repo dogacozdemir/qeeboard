@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import CartPage from './pages/Cart'
 import DesignerEmbed from './pages/DesignerEmbed'
 import OrderDetailPage from './pages/OrderDetail'
+import ShareLinkPage from './pages/ShareLink'
 
 const router = createBrowserRouter([
   { path: '/', element: <App /> },
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
   { path: '/profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
   { path: '/cart', element: <ProtectedRoute><CartPage /></ProtectedRoute> },
   { path: '/orders/:id', element: <ProtectedRoute><OrderDetailPage /></ProtectedRoute> },
+  { path: '/share/:token', element: <ShareLinkPage /> },
 ])
 
 createRoot(document.getElementById('root')!).render(

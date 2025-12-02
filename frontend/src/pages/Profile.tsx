@@ -392,6 +392,100 @@ export default function ProfilePage() {
                     <div className="addr-actions">
                       <button 
                         className="icon-btn small" 
+                        aria-label="Paylaş" 
+                        onClick={async () => {
+                          const userId = getUserIdFromToken()
+                          if (!userId) {
+                            alert('Giriş yapmanız gerekiyor')
+                            return
+                          }
+                          
+                          const emails = prompt('Paylaşmak istediğiniz email adreslerini girin (virgülle ayırın):')
+                          if (!emails) return
+                          
+                          const emailList = emails.split(',').map(e => e.trim()).filter(e => e.includes('@'))
+                          if (emailList.length === 0) {
+                            alert('Geçerli email adresi girin')
+                            return
+                          }
+                          
+                          const role = confirm('Tasarımcı rolü verilsin mi? (Birlikte düzenleyebilirler)\n\nTamam = Tasarımcı\nİptal = Misafir (Sadece izler)') ? 'EDITOR' : 'VIEWER'
+                          
+                          try {
+                            const res = await apiPost('/api/shares', {
+                              configId: c.id,
+                              ownerId: userId,
+                              allowedEmails: emailList,
+                              role
+                            })
+                            
+                            const token = res.data.token
+                            const shareUrl = `${window.location.origin}/share/${token}`
+                            
+                            // WhatsApp paylaşım
+                            let previewUrl = c.previewUrl ? getPreviewUrl(c.previewUrl) : null
+                            
+                            // Generate preview if not exists
+                            if (!previewUrl) {
+                              try {
+                                await apiPost(`/api/configs/${c.id}/preview`, {})
+                                const updatedRes = await apiGet(`/api/configs/${c.id}`)
+                                previewUrl = updatedRes.data?.previewUrl ? getPreviewUrl(updatedRes.data.previewUrl) : null
+                              } catch (e) {
+                                console.error('Preview generation failed:', e)
+                              }
+                            }
+                            
+                            if (confirm('Paylaşım linki oluşturuldu!\n\nWhatsApp\'ta paylaşmak ister misiniz?')) {
+                              // Try to copy image to clipboard or download
+                              if (previewUrl) {
+                                try {
+                                  const response = await fetch(previewUrl)
+                                  const blob = await response.blob()
+                                  
+                                  // Try clipboard first
+                                  try {
+                                    const item = new ClipboardItem({ 'image/png': blob })
+                                    await navigator.clipboard.write([item])
+                                    alert('Image clipboard\'a kopyalandı! WhatsApp Web\'de bir sohbet açıp Ctrl+V (veya Cmd+V) yaparak gönderebilirsiniz.')
+                                  } catch (clipboardError) {
+                                    // If clipboard fails, download
+                                    const blobUrl = URL.createObjectURL(blob)
+                                    const link = document.createElement('a')
+                                    link.href = blobUrl
+                                    link.download = `qeeboard-tasarim-${c.id}-${Date.now()}.png`
+                                    document.body.appendChild(link)
+                                    link.click()
+                                    document.body.removeChild(link)
+                                    URL.revokeObjectURL(blobUrl)
+                                    alert('Image indirildi! WhatsApp Web\'de dosyayı sürükleyip bırakarak gönderebilirsiniz.')
+                                  }
+                                } catch (e) {
+                                  console.error('Image processing failed:', e)
+                                  alert('Image işlenirken bir hata oluştu.')
+                                }
+                              }
+                              
+                              // Open WhatsApp Web (without any text/link - just for chat selection)
+                              setTimeout(() => {
+                                window.open('https://web.whatsapp.com', '_blank')
+                              }, 500)
+                            } else {
+                              navigator.clipboard.writeText(shareUrl)
+                              alert('Link panoya kopyalandı: ' + shareUrl)
+                            }
+                          } catch (e: any) {
+                            alert('Paylaşım linki oluşturulamadı: ' + (e?.message || 'Bilinmeyen hata'))
+                          }
+                        }}
+                        title="Paylaş"
+                      >
+                        <svg className="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+                          <path d="M18 8a3 3 0 0 0-2.83 2H11a3 3 0 0 0 0 6h4.17a3.001 3.001 0 1 0 2.83-4M18 10a1 1 0 1 1 0 2 1 1 0 0 1-1-1M6 8a3 3 0 1 0 4 4h4a3 3 0 0 0 0-6H10a3 3 0 0 0-4 4M6 10a1 1 0 1 1 0 2 1 1 0 0 1-1-1" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      </button>
+                      <button 
+                        className="icon-btn small" 
                         aria-label="Düzenle" 
                         onClick={() => {
                           navigate(`/designer?configId=${c.id}`)

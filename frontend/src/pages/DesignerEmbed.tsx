@@ -5,10 +5,17 @@ export default function DesignerEmbed() {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [searchParams] = useSearchParams()
   
-  // Get configId from URL and pass it to iframe
+  // Get configId and shareToken from URL and pass them to iframe
   const configId = searchParams.get('configId')
-  const iframeSrc = configId 
-    ? `http://localhost:8080?configId=${configId}`
+  const shareToken = searchParams.get('shareToken')
+  
+  // Build iframe src with both configId and shareToken if available
+  const params = new URLSearchParams()
+  if (configId) params.set('configId', configId)
+  if (shareToken) params.set('shareToken', shareToken)
+  
+  const iframeSrc = params.toString() 
+    ? `http://localhost:8080?${params.toString()}`
     : 'http://localhost:8080'
 
   useEffect(() => {

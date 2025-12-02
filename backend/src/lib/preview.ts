@@ -394,7 +394,7 @@ export async function generatePreview(configId: number, layoutData: any): Promis
 
     // Use same scale as designer for consistency
     const UNIT = 48
-    const BASE_SCALE = 3.0 // Higher scale for better quality
+    const BASE_SCALE = 4.0 // Higher scale for better quality (increased from 3.0)
     const pad = 20 * BASE_SCALE // Padding around keyboard
     
     const maxW = Math.max(0, ...layout.keys.map((k: any) => k.x + k.width))
@@ -416,17 +416,19 @@ export async function generatePreview(configId: number, layoutData: any): Promis
       </svg>
     `.trim()
 
-    // Convert SVG to PNG - no resize needed since SVG is already high resolution
-    // Only limit maximum size to prevent extremely large files
+    // Convert SVG to PNG with high quality settings
+    // Use higher resolution and lower compression for better quality
     const pngBuffer = await sharp(Buffer.from(svg))
-      .resize(2400, null, { 
+      .resize(4000, null, { 
         fit: 'inside', 
         withoutEnlargement: true, // Don't enlarge if SVG is smaller
-        kernel: sharp.kernel.lanczos3 // Higher quality resampling
+        kernel: sharp.kernel.lanczos3 // Highest quality resampling
       })
       .png({ 
-        compressionLevel: 6, // Balanced compression (0-9, lower = less compression, better quality)
-        adaptiveFiltering: true // Better quality for sharp edges
+        compressionLevel: 1, // Minimal compression for maximum quality (0-9, lower = better quality)
+        adaptiveFiltering: true, // Better quality for sharp edges
+        palette: false, // Full color, no palette optimization
+        effort: 10 // Maximum compression effort (0-10, higher = better but slower)
       })
       .toBuffer()
 
@@ -451,6 +453,60 @@ export async function generatePreview(configId: number, layoutData: any): Promis
   } catch (error: any) {
     console.error(`[Preview] Error generating preview for config ${configId}:`, error)
     console.error(`[Preview] Error stack:`, error?.stack)
+    return null
+  }
+}
+
+// Generate high-quality PNG for download (no file saving, returns buffer)
+export async function generateHighQualityPNG(layoutData: any): Promise<Buffer | null> {
+  try {
+    const layout = layoutData?.layout || layoutData
+    if (!layout || !Array.isArray(layout.keys)) {
+      throw new Error('Invalid layout data')
+    }
+
+    // Use even higher scale for download quality
+    const UNIT = 48
+    const BASE_SCALE = 5.0 // Very high scale for maximum quality
+    const pad = 20 * BASE_SCALE
+
+    const maxW = Math.max(0, ...layout.keys.map((k: any) => k.x + k.width))
+    const maxH = Math.max(0, ...layout.keys.map((k: any) => k.y + k.height))
+    const svgW = Math.round(maxW * UNIT * BASE_SCALE + pad * 2)
+    const svgH = Math.round(maxH * UNIT * BASE_SCALE + pad * 2)
+
+    // Generate SVG string for each keycap
+    const svgParts = layout.keys.map((k: any) => {
+      const offsetX = pad + k.x * UNIT * BASE_SCALE
+      const offsetY = pad + k.y * UNIT * BASE_SCALE
+      return generateKeycapSVG(k, BASE_SCALE, offsetX, offsetY)
+    }).join('')
+
+    const svg = `
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="${svgW}" height="${svgH}" rx="8" ry="8" fill="#0b0d10" stroke="#1f2937" />
+        ${svgParts}
+      </svg>
+    `.trim()
+
+    // Convert SVG to PNG with maximum quality settings
+    const pngBuffer = await sharp(Buffer.from(svg))
+      .resize(6000, null, { 
+        fit: 'inside', 
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3
+      })
+      .png({ 
+        compressionLevel: 0, // No compression for maximum quality
+        adaptiveFiltering: true,
+        palette: false, // Full color
+        effort: 10 // Maximum effort
+      })
+      .toBuffer()
+
+    return pngBuffer
+  } catch (error: any) {
+    console.error('Error generating high-quality PNG:', error)
     return null
   }
 }

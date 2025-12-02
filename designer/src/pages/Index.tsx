@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useKeyboardConfig } from '@/hooks/useKeyboardConfig';
 import { layoutOptions } from '@/data/layouts';
 import UnifiedSidebar from '@/components/UnifiedSidebar';
@@ -8,20 +8,23 @@ import DragSelection from '@/components/DragSelection';
 import FloatingToolbar from '@/components/FloatingToolbar';
 import LayerManager from '@/components/LayerManager';
 import ExportPanel from '@/components/ExportPanel';
-import { Box, Monitor, Download, FileImage, RotateCcw, Undo2, Redo2, FolderOpen } from 'lucide-react';
+import { Box, Monitor, Download, FileImage, RotateCcw, Undo2, Redo2, FolderOpen, Users, Eye } from 'lucide-react';
 import CartDropdown from '@/components/CartDropdown';
 import ProfileDropdown from '@/components/ProfileDropdown';
 import SaveConfigButton from '@/components/SaveConfigButton';
 import SavedConfigsModal from '@/components/SavedConfigsModal';
+import ShareButton from '@/components/ShareButton';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { KeycapLayer } from '@/types/keyboard';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import { apiGet, apiPut, apiPost, getUserIdFromToken } from '@/lib/api';
+import { API_URL } from '@/lib/api';
 import BackgroundPanel from '@/components/BackgroundPanel';
 import CasePanel from '@/components/CasePanel';
 import UIPanel from '@/components/UIPanel';
 import { useToast } from '@/hooks/use-toast';
+import { io, Socket } from 'socket.io-client';
 
 const Index = () => {
   const [view3D, setView3D] = useState(false);
@@ -209,36 +212,41 @@ const Index = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const { toast } = useToast();
   
-  // Load config from URL parameter on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const configIdParam = params.get('configId');
-    if (configIdParam) {
-      const configId = parseInt(configIdParam);
-      if (!isNaN(configId) && !currentConfigId) {
-        // Load config if not already loaded
-        (async () => {
-          try {
-            const res = await apiGet(`/api/configs/${configId}`);
-            const cfg = res?.data;
-            if (cfg?.layoutData) {
-              hydrateFromLayoutData(cfg.layoutData, cfg.layoutData?.currentLayoutType, cfg.layoutData?.layoutStandard);
-              setCurrentConfigId(configId);
-              setCurrentConfigName(cfg?.name || null);
-              try { localStorage.setItem('onboarding_done', '1'); } catch {}
-              setShowWelcome(false);
-            }
-          } catch (error) {
-            console.error('Failed to load config from URL:', error);
-          }
-        })();
-      }
-    }
-  }, []); // Only run on mount
+  // WebSocket for collaboration
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [collaborationRole, setCollaborationRole] = useState<'VIEWER' | 'EDITOR' | null>(null);
+  const [isCollaborating, setIsCollaborating] = useState(false);
+  const isApplyingRemoteUpdate = useRef<boolean>(false);
+  
+  // Store socket instance and collaboration state in refs for reliable access in auto-save
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const shareTokenRef = useRef<string | null>(null);
+  const collaborationRoleRef = useRef<'VIEWER' | 'EDITOR' | null>(null);
+  const isCollaboratingRef = useRef<boolean>(false);
+  
+  // Throttled commit for color changes (performance optimization)
+  const COLOR_COMMIT_THROTTLE_MS = 80; // Throttle color commits to max once per 80ms
+  const colorCommitThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const textColorCommitThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingColorCommitRef = useRef<{ keyIds: string[]; color: string } | null>(null);
+  const pendingTextColorCommitRef = useRef<{ items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> } | { keyId: string; layerId: string; color: string } | { keyIds: string[]; textColor: string } | null>(null);
   
   // Project name değişikliği için debounce
   const [pendingNameUpdate, setPendingNameUpdate] = useState<string | null>(null);
   const [lastSavedName, setLastSavedName] = useState<string | null>(null);
+  
+  // Cleanup throttles on unmount
+  useEffect(() => {
+    return () => {
+      if (colorCommitThrottleRef.current) {
+        clearTimeout(colorCommitThrottleRef.current);
+      }
+      if (textColorCommitThrottleRef.current) {
+        clearTimeout(textColorCommitThrottleRef.current);
+      }
+    };
+  }, []);
   
   useEffect(() => {
     if (pendingNameUpdate !== null && currentConfigId) {
@@ -307,8 +315,8 @@ const Index = () => {
     selectKey,
     selectKeys,
     clearSelection,
-    updateKeycapColor,
-    updateKeycapTextColor,
+    updateKeycapColor: originalUpdateKeycapColor,
+    updateKeycapTextColor: originalUpdateKeycapTextColor,
     previewKeycapColor,
     previewKeycapTextColor,
     startEditingKey,
@@ -327,15 +335,365 @@ const Index = () => {
     beginBatch,
     hydrateFromLayoutData,
     endBatch,
-    addLayer,
-    deleteLayer,
-    reorderLayer,
-    updateLayer,
+    addLayer: originalAddLayer,
+    deleteLayer: originalDeleteLayer,
+    reorderLayer: originalReorderLayer,
+    updateLayer: originalUpdateLayer,
     getKeyLayers,
     selectLayer,
     applyTheme,
-    updateLayersBatch,
+    updateLayersBatch: originalUpdateLayersBatch,
   } = useKeyboardConfig();
+
+  // Wrapper functions that check collaboration role (VIEWER can't edit)
+  const isReadOnly = isCollaborating && collaborationRole === 'VIEWER';
+  
+  const updateKeycapColor = isReadOnly ? () => {} : originalUpdateKeycapColor;
+  const updateKeycapTextColor = isReadOnly ? () => {} : originalUpdateKeycapTextColor;
+  const addLayer = isReadOnly ? () => {} : originalAddLayer;
+  const deleteLayer = isReadOnly ? () => {} : originalDeleteLayer;
+  const reorderLayer = isReadOnly ? () => {} : originalReorderLayer;
+  const updateLayer = isReadOnly ? () => {} : originalUpdateLayer;
+  const updateLayersBatch = isReadOnly ? () => {} : originalUpdateLayersBatch;
+
+  // Load config and shareToken from URL parameter (after hydrateFromLayoutData is available)
+  // This runs on mount and when URL params change (e.g., page refresh)
+  useEffect(() => {
+    if (!hydrateFromLayoutData) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const configIdParam = params.get('configId');
+    const shareTokenParam = params.get('shareToken');
+    
+    // Set shareToken from URL if available (this will trigger socket connection)
+    if (shareTokenParam && shareTokenParam !== shareToken) {
+      setShareToken(shareTokenParam);
+    }
+    
+    if (configIdParam) {
+      const configId = parseInt(configIdParam);
+      if (!isNaN(configId)) {
+        // Load config if URL has configId and it's different from current, or if currentConfigId is null
+        // This handles both initial load and page refresh
+        if (configId !== currentConfigId) {
+          (async () => {
+            try {
+              const res = await apiGet(`/api/configs/${configId}`);
+              const cfg = res?.data;
+              if (cfg?.layoutData) {
+                // Mark as remote update to prevent auto-save during initial load
+                isApplyingRemoteUpdate.current = true;
+                
+                hydrateFromLayoutData(
+                  cfg.layoutData, 
+                  cfg.layoutData?.currentLayoutType, 
+                  cfg.layoutData?.layoutStandard
+                );
+                
+                // Update lastSavedConfigRef to match the loaded data
+                const loadedLayoutData = {
+                  layout: cfg.layoutData.layout,
+                  globalSettings: cfg.layoutData.globalSettings,
+                  groups: cfg.layoutData.groups,
+                  currentLayoutType: cfg.layoutData.currentLayoutType,
+                  layoutStandard: cfg.layoutData.layoutStandard,
+                  currentTheme: cfg.layoutData.currentTheme
+                };
+                lastSavedConfigRef.current = JSON.stringify(loadedLayoutData);
+                
+                setCurrentConfigId(configId);
+                setCurrentConfigName(cfg?.name || null);
+                try { localStorage.setItem('onboarding_done', '1'); } catch {}
+                setShowWelcome(false);
+                
+                // Reset flag after load
+                setTimeout(() => {
+                  isApplyingRemoteUpdate.current = false;
+                }, 200);
+              }
+            } catch (error) {
+              console.error('[Config Load] Failed to load config:', error);
+            }
+          })();
+        }
+      }
+    }
+  }, [hydrateFromLayoutData, shareToken, currentConfigId]); // Include currentConfigId to detect changes
+
+  // WebSocket connection for collaboration (after hydrateFromLayoutData is available)
+  useEffect(() => {
+    if (!shareToken || !hydrateFromLayoutData) return;
+    
+    // Don't require currentConfigId - it will be set from share:sync
+
+    const userId = getUserIdFromToken();
+    const socketInstance = io(API_URL, {
+      transports: ['websocket', 'polling']
+    });
+
+    // Store socket in state IMMEDIATELY so auto-save can use it
+    setSocket(socketInstance);
+    socketRef.current = socketInstance; // Also store in ref for immediate access
+    shareTokenRef.current = shareToken; // Store shareToken in ref
+
+    socketInstance.on('connect', () => {
+      socketInstance.emit('share:join', { token: shareToken, userId: userId || undefined });
+    });
+
+    socketInstance.on('share:sync', (data: { configId: number; layoutData: any; role: 'VIEWER' | 'EDITOR' }) => {
+      // Set collaboration state FIRST (before loading data)
+      setCollaborationRole(data.role);
+      setIsCollaborating(true);
+      
+      // Update refs immediately for auto-save to use
+      collaborationRoleRef.current = data.role;
+      isCollaboratingRef.current = true;
+      
+      // Set currentConfigId from sync if not set
+      if (data.configId && !currentConfigId) {
+        setCurrentConfigId(data.configId);
+      }
+      
+      if (data.layoutData) {
+        // Mark as remote update to prevent auto-save during sync
+        isApplyingRemoteUpdate.current = true;
+        
+        hydrateFromLayoutData(
+          data.layoutData,
+          data.layoutData?.currentLayoutType,
+          data.layoutData?.layoutStandard
+        );
+        
+        // Update lastSavedConfigRef to match the synced data
+        const syncedLayoutData = {
+          layout: data.layoutData.layout,
+          globalSettings: data.layoutData.globalSettings,
+          groups: data.layoutData.groups,
+          currentLayoutType: data.layoutData.currentLayoutType,
+          layoutStandard: data.layoutData.layoutStandard,
+          currentTheme: data.layoutData.currentTheme
+        };
+        lastSavedConfigRef.current = JSON.stringify(syncedLayoutData);
+        
+        // Reset flag after sync
+        setTimeout(() => {
+          isApplyingRemoteUpdate.current = false;
+        }, 200);
+      }
+    });
+
+    socketInstance.on('share:update', (data: { layoutData: any; updatedBy: number | null }) => {
+      // Ignore updates from self
+      if (data.updatedBy === userId) {
+        return;
+      }
+      
+      // Mark that we're applying a remote update (to prevent auto-save loop)
+      isApplyingRemoteUpdate.current = true;
+      
+      // Apply update immediately - hydrateFromLayoutData now updates all fields
+      if (data.layoutData) {
+        hydrateFromLayoutData(
+          data.layoutData,
+          data.layoutData?.currentLayoutType,
+          data.layoutData?.layoutStandard
+        );
+        
+        // Update lastSavedConfigRef to match the remote update
+        const remoteLayoutData = {
+          layout: data.layoutData.layout,
+          globalSettings: data.layoutData.globalSettings,
+          groups: data.layoutData.groups,
+          currentLayoutType: data.layoutData.currentLayoutType,
+          layoutStandard: data.layoutData.layoutStandard,
+          currentTheme: data.layoutData.currentTheme
+        };
+        lastSavedConfigRef.current = JSON.stringify(remoteLayoutData);
+        
+        // Reset flag after a short delay to allow state update to complete
+        setTimeout(() => {
+          isApplyingRemoteUpdate.current = false;
+        }, 100);
+      }
+    });
+
+    socketInstance.on('share:user-joined', (data: { socketId: string; userId: number | null; role: 'VIEWER' | 'EDITOR' }) => {
+      // User join notifications removed for smoother UX
+    });
+
+    socketInstance.on('share:user-left', (data: { socketId: string }) => {
+      // User leave notifications removed for smoother UX
+    });
+
+    socketInstance.on('share:error', (data: { message: string }) => {
+      toast({
+        title: 'Hata',
+        description: data.message,
+        variant: 'destructive'
+      });
+    });
+
+    socketInstance.on('disconnect', () => {
+      setIsCollaborating(false);
+    });
+
+    // Socket is already set above, no need to set again here
+
+    return () => {
+      socketInstance.disconnect();
+      setSocket(null);
+      setIsCollaborating(false);
+      // Clean up throttle timeout
+      if (socketEmitThrottleRef.current) {
+        clearTimeout(socketEmitThrottleRef.current);
+        socketEmitThrottleRef.current = null;
+      }
+    };
+  }, [shareToken, hydrateFromLayoutData, toast, currentConfigId]);
+
+  // Track last saved config to avoid unnecessary saves
+  const lastSavedConfigRef = useRef<string | null>(null);
+  const lastSocketEmitRef = useRef<string | null>(null);
+  const socketEmitThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSocketEmitTimeRef = useRef<number>(0);
+  const SOCKET_THROTTLE_MS = 150; // Throttle socket emits to max once per 150ms
+  const DB_DEBOUNCE_MS = 500; // Debounce database saves to 500ms
+
+  // Update refs when state changes
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+  useEffect(() => {
+    shareTokenRef.current = shareToken;
+  }, [shareToken]);
+  useEffect(() => {
+    collaborationRoleRef.current = collaborationRole;
+  }, [collaborationRole]);
+  useEffect(() => {
+    isCollaboratingRef.current = isCollaborating;
+  }, [isCollaborating]);
+
+  // Memoize layoutData to avoid recalculating on every render
+  // Only include actual content data, exclude UI state like selectedKeys
+  const layoutData = useMemo(() => ({
+    layout: config.layout,
+    globalSettings: config.globalSettings,
+    groups: config.groups,
+    currentLayoutType: config.currentLayoutType,
+    layoutStandard: config.layoutStandard,
+    currentTheme: config.currentTheme
+  }), [
+    config.layout,
+    config.globalSettings,
+    config.groups,
+    config.currentLayoutType,
+    config.layoutStandard,
+    config.currentTheme
+  ]);
+
+  // Memoize config hash to avoid recalculating JSON.stringify on every render
+  const configHash = useMemo(() => JSON.stringify(layoutData), [layoutData]);
+
+  // Throttled socket emit function
+  const emitSocketUpdate = useCallback((layoutDataToSend: typeof layoutData) => {
+    const currentSocket = socketRef.current;
+    const currentShareToken = shareTokenRef.current;
+    const currentRole = collaborationRoleRef.current;
+    const currentIsCollaborating = isCollaboratingRef.current;
+
+    if (!currentSocket || !currentShareToken || currentRole !== 'EDITOR' || !currentIsCollaborating) {
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastEmit = now - lastSocketEmitTimeRef.current;
+    const hashToSend = JSON.stringify(layoutDataToSend);
+
+    // If same hash, skip
+    if (lastSocketEmitRef.current === hashToSend) {
+      return;
+    }
+
+    // If enough time has passed, emit immediately
+    if (timeSinceLastEmit >= SOCKET_THROTTLE_MS) {
+      currentSocket.emit('share:update', {
+        token: currentShareToken,
+        layoutData: layoutDataToSend
+      });
+      lastSocketEmitRef.current = hashToSend;
+      lastSocketEmitTimeRef.current = now;
+      
+      // Clear any pending throttle
+      if (socketEmitThrottleRef.current) {
+        clearTimeout(socketEmitThrottleRef.current);
+        socketEmitThrottleRef.current = null;
+      }
+    } else {
+      // Schedule emit after throttle period
+      if (socketEmitThrottleRef.current) {
+        clearTimeout(socketEmitThrottleRef.current);
+      }
+      
+      socketEmitThrottleRef.current = setTimeout(() => {
+        const finalHash = JSON.stringify(layoutDataToSend);
+        if (lastSocketEmitRef.current !== finalHash) {
+          currentSocket.emit('share:update', {
+            token: currentShareToken,
+            layoutData: layoutDataToSend
+          });
+          lastSocketEmitRef.current = finalHash;
+          lastSocketEmitTimeRef.current = Date.now();
+        }
+        socketEmitThrottleRef.current = null;
+      }, SOCKET_THROTTLE_MS - timeSinceLastEmit);
+    }
+  }, []);
+
+  // Auto-save and send updates to WebSocket when config changes
+  useEffect(() => {
+    if (!currentConfigId) return;
+    
+    // Don't auto-save if we're applying a remote update (to avoid loops)
+    if (isApplyingRemoteUpdate.current) {
+      return;
+    }
+
+    // Skip if hash hasn't changed (memoized hash comparison)
+    if (lastSavedConfigRef.current === configHash) {
+      return;
+    }
+
+    // Throttled socket emit for real-time collaboration
+    emitSocketUpdate(layoutData);
+
+    // Debounced database save
+    const timeoutId = setTimeout(async () => {
+      // Double-check flag before saving
+      if (isApplyingRemoteUpdate.current) {
+        return;
+      }
+
+      // Double-check hash hasn't changed
+      const currentHash = JSON.stringify(layoutData);
+      if (lastSavedConfigRef.current === currentHash) {
+        return;
+      }
+
+      // Auto-save to database
+      try {
+        await apiPut(`/api/configs/${currentConfigId}`, {
+          layoutData
+        });
+        lastSavedConfigRef.current = currentHash;
+      } catch (error) {
+        console.error('[Auto-save] Failed to save config:', error);
+      }
+    }, DB_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [configHash, layoutData, currentConfigId, emitSocketUpdate]);
 
   const selectedKeys = getSelectedKeys();
   const editingKey = getSelectedKey();
@@ -522,9 +880,11 @@ const Index = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [canUndo, canRedo, undo, redo]);
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = useCallback((color: string) => {
     if (config.selectedKeys.length > 0) {
-      // If selectedLayerIds is provided in multi-selection, only preview keycaps that have selected layers
+      // Step 1: Immediate preview (visual only, no config state update)
+      let keyIdsToPreview: string[] = [];
+      
       if (isMultiSelection && selectedLayerIds.length > 0) {
         const keyIdsWithSelectedLayers: string[] = [];
         config.selectedKeys.forEach(keyId => {
@@ -534,97 +894,159 @@ const Index = () => {
             keyIdsWithSelectedLayers.push(keyId);
           }
         });
-        if (keyIdsWithSelectedLayers.length > 0) {
-          previewKeycapColor(keyIdsWithSelectedLayers, color);
-        }
-      } else {
-        // Fallback: preview all selected keycaps (old behavior)
-      previewKeycapColor(config.selectedKeys, color);
-      }
-    }
-  };
-
-  const handleTextColorChange = (textColor: string) => {
-    if (config.selectedKeys.length > 0) {
-      // Preview is handled differently - we don't preview layer colors, only keycap textColor
-      // So keep old behavior for preview
-      previewKeycapTextColor(config.selectedKeys, textColor);
-    }
-  };
-
-  const handleColorCommit = (color: string) => {
-    if (config.selectedKeys.length > 0) {
-      // If selectedLayerIds is provided in multi-selection, only update keycaps that have selected layers
-      if (isMultiSelection && selectedLayerIds.length > 0) {
-        const keyIdsWithSelectedLayers: string[] = [];
-        config.selectedKeys.forEach(keyId => {
-          const layers = getKeyLayers(keyId);
-          const hasSelectedLayer = layers.some(layer => selectedLayerIds.includes(layer.id));
-          if (hasSelectedLayer) {
-            keyIdsWithSelectedLayers.push(keyId);
-          }
-        });
-        if (keyIdsWithSelectedLayers.length > 0) {
-          updateKeycapColor(keyIdsWithSelectedLayers, color);
-        }
+        keyIdsToPreview = keyIdsWithSelectedLayers;
       } else if (editingKeyId && selectedLayer) {
-        // Single selection with a layer selected - update that keycap's color
-        updateKeycapColor([editingKeyId], color);
+        keyIdsToPreview = [editingKeyId];
       } else {
-        // Fallback: update all selected keycaps (old behavior)
-      updateKeycapColor(config.selectedKeys, color);
+        keyIdsToPreview = config.selectedKeys;
+      }
+      
+      if (keyIdsToPreview.length > 0) {
+        // Immediate visual preview
+        previewKeycapColor(keyIdsToPreview, color);
+        
+        // Step 2: Throttled commit (updates config state and triggers auto-save/socket)
+        pendingColorCommitRef.current = { keyIds: keyIdsToPreview, color };
+        
+        if (colorCommitThrottleRef.current) {
+          clearTimeout(colorCommitThrottleRef.current);
+        }
+        
+        colorCommitThrottleRef.current = setTimeout(() => {
+          const pending = pendingColorCommitRef.current;
+          if (pending) {
+            updateKeycapColor(pending.keyIds, pending.color);
+            pendingColorCommitRef.current = null;
+          }
+          colorCommitThrottleRef.current = null;
+        }, COLOR_COMMIT_THROTTLE_MS);
       }
     }
-  };
+  }, [config.selectedKeys, isMultiSelection, selectedLayerIds, editingKeyId, selectedLayer, previewKeycapColor, updateKeycapColor, getKeyLayers]);
 
-  const handleTextColorCommit = (textColor: string) => {
-    console.log('handleTextColorCommit called:', { 
-      textColor, 
-      selectedLayerIds, 
-      selectedLayerIdsLength: selectedLayerIds.length,
-      editingKeyId, 
-      selectedLayer, 
-      selectedLayerId,
-      selectedKeysCount: config.selectedKeys.length,
-      isMultiSelection 
-    });
-    
+  const handleTextColorChange = useCallback((textColor: string) => {
     if (config.selectedKeys.length > 0) {
-      // If selectedLayerIds is provided (multi-selection or single with layer type selected), update only those layers' color
+      // Step 1: Immediate preview (visual only, no config state update)
+      let keyIdsToPreview: string[] = [];
+      let commitData: { items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> } | { keyId: string; layerId: string; color: string } | { keyIds: string[]; textColor: string } | null = null;
+      
       if (selectedLayerIds.length > 0) {
-        console.log('Branch 1: Updating selected layers');
         const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
         config.selectedKeys.forEach(keyId => {
           const layers = getKeyLayers(keyId);
-          console.log(`Key ${keyId} has ${layers.length} layers:`, layers.map(l => ({ id: l.id, type: l.type })));
+          layers.forEach(layer => {
+            if (selectedLayerIds.includes(layer.id)) {
+              items.push({ keyId, layerId: layer.id, updates: { color: textColor } });
+              if (!keyIdsToPreview.includes(keyId)) {
+                keyIdsToPreview.push(keyId);
+              }
+            }
+          });
+        });
+        if (items.length > 0) {
+          commitData = { items };
+        }
+      } else if (editingKeyId && selectedLayer) {
+        keyIdsToPreview = [editingKeyId];
+        commitData = { keyId: editingKeyId, layerId: selectedLayer.id, color: textColor };
+      } else {
+        keyIdsToPreview = config.selectedKeys;
+        commitData = { keyIds: config.selectedKeys, textColor };
+      }
+      
+      if (keyIdsToPreview.length > 0 && commitData) {
+        // Immediate visual preview
+        previewKeycapTextColor(keyIdsToPreview, textColor);
+        
+        // Step 2: Throttled commit (updates config state and triggers auto-save/socket)
+        pendingTextColorCommitRef.current = commitData;
+        
+        if (textColorCommitThrottleRef.current) {
+          clearTimeout(textColorCommitThrottleRef.current);
+        }
+        
+        textColorCommitThrottleRef.current = setTimeout(() => {
+          const pending = pendingTextColorCommitRef.current;
+          if (pending) {
+            if ('items' in pending) {
+              updateLayersBatch(pending.items);
+            } else if ('keyId' in pending && 'layerId' in pending) {
+              updateLayer(pending.keyId, pending.layerId, { color: pending.color });
+            } else if ('keyIds' in pending && 'textColor' in pending) {
+              updateKeycapTextColor(pending.keyIds, pending.textColor);
+            }
+            pendingTextColorCommitRef.current = null;
+          }
+          textColorCommitThrottleRef.current = null;
+        }, COLOR_COMMIT_THROTTLE_MS);
+      }
+    }
+  }, [config.selectedKeys, selectedLayerIds, editingKeyId, selectedLayer, previewKeycapTextColor, updateLayersBatch, updateLayer, updateKeycapTextColor, getKeyLayers]);
+
+  const handleColorCommit = useCallback((color: string) => {
+    // Final commit: clear any pending throttle and apply immediately
+    if (colorCommitThrottleRef.current) {
+      clearTimeout(colorCommitThrottleRef.current);
+      colorCommitThrottleRef.current = null;
+    }
+    
+    // Apply the final color change immediately
+    if (config.selectedKeys.length > 0) {
+      let keyIdsToUpdate: string[] = [];
+      
+      if (isMultiSelection && selectedLayerIds.length > 0) {
+        const keyIdsWithSelectedLayers: string[] = [];
+        config.selectedKeys.forEach(keyId => {
+          const layers = getKeyLayers(keyId);
+          const hasSelectedLayer = layers.some(layer => selectedLayerIds.includes(layer.id));
+          if (hasSelectedLayer) {
+            keyIdsWithSelectedLayers.push(keyId);
+          }
+        });
+        keyIdsToUpdate = keyIdsWithSelectedLayers;
+      } else if (editingKeyId && selectedLayer) {
+        keyIdsToUpdate = [editingKeyId];
+      } else {
+        keyIdsToUpdate = config.selectedKeys;
+      }
+      
+      if (keyIdsToUpdate.length > 0) {
+        updateKeycapColor(keyIdsToUpdate, color);
+        pendingColorCommitRef.current = null;
+      }
+    }
+  }, [config.selectedKeys, isMultiSelection, selectedLayerIds, editingKeyId, selectedLayer, updateKeycapColor, getKeyLayers]);
+
+  const handleTextColorCommit = useCallback((textColor: string) => {
+    // Final commit: clear any pending throttle and apply immediately
+    if (textColorCommitThrottleRef.current) {
+      clearTimeout(textColorCommitThrottleRef.current);
+      textColorCommitThrottleRef.current = null;
+    }
+    
+    // Apply the final text color change immediately
+    if (config.selectedKeys.length > 0) {
+      if (selectedLayerIds.length > 0) {
+        const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
+        config.selectedKeys.forEach(keyId => {
+          const layers = getKeyLayers(keyId);
           layers.forEach(layer => {
             if (selectedLayerIds.includes(layer.id)) {
               items.push({ keyId, layerId: layer.id, updates: { color: textColor } });
             }
           });
         });
-        console.log('Items to update:', items);
         if (items.length > 0) {
           updateLayersBatch(items);
-          console.log('updateLayersBatch called');
-        } else {
-          console.warn('No items to update!');
         }
       } else if (editingKeyId && selectedLayer) {
-        // Single selection with a specific layer selected - update that layer's color
-        console.log('Branch 2: Updating single layer', editingKeyId, selectedLayer.id);
         updateLayer(editingKeyId, selectedLayer.id, { color: textColor });
-        console.log('updateLayer called');
       } else {
-        // Fallback: update keycap textColor (old behavior)
-        console.log('Branch 3: Fallback - updating keycap textColor');
-      updateKeycapTextColor(config.selectedKeys, textColor);
-        console.log('updateKeycapTextColor called');
+        updateKeycapTextColor(config.selectedKeys, textColor);
       }
-    } else {
-      console.warn('No selected keys!');
+      pendingTextColorCommitRef.current = null;
     }
-  };
+  }, [config.selectedKeys, selectedLayerIds, editingKeyId, selectedLayer, updateLayersBatch, updateLayer, updateKeycapTextColor, getKeyLayers]);
 
   const handleMultiLayerUpdate = (keyIds: string[], layerId: string, updates: any) => {
     const items = keyIds.map(keyId => ({ keyId, layerId, updates }));
@@ -851,6 +1273,15 @@ const Index = () => {
                   setSavedConfigsRefreshTrigger(prev => prev + 1)
                 }} 
               />
+              <ShareButton
+                config={config}
+                currentConfigId={currentConfigId}
+                currentConfigName={currentConfigName}
+                onShareTokenChange={(token) => {
+                  setShareToken(token);
+                  shareTokenRef.current = token; // Update ref immediately
+                }}
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -904,6 +1335,22 @@ const Index = () => {
             
             {/* Right side - Other actions */}
             <div className="flex items-center gap-3">
+              {/* Collaboration indicator */}
+              {isCollaborating && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-500/20 text-blue-400 text-sm">
+                  {collaborationRole === 'EDITOR' ? (
+                    <>
+                      <Users className="h-4 w-4" />
+                      <span>Birlikte Düzenleniyor</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      <span>İzleme Modu</span>
+                    </>
+                  )}
+                </div>
+              )}
               {/* Export Button */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -1302,13 +1749,28 @@ const Index = () => {
                       <button
                         className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg border border-gray-600 transition-colors w-full flex items-center gap-2"
                         title="Arka Plan"
+                        onClick={(e) => {
+                          // Prevent click from propagating to parent and deselecting keys
+                          e.stopPropagation();
+                        }}
                       >
                         {/* simple palette icon via SVG */}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M12 2a10 10 0 0 0-10 10 6 6 0 0 0 6 6h1a1 1 0 0 1 1 1v1a3 3 0 0 0 3 3c4.418 0 8-3.582 8-8A10 10 0 0 0 12 2Zm-3 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
                         <span>Arka Plan</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-96 p-4" align="end">
+                    <PopoverContent 
+                      className="w-96 p-4" 
+                      align="end"
+                      onClick={(e) => {
+                        // Prevent click from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                      onMouseDown={(e) => {
+                        // Prevent mousedown from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                    >
                       <BackgroundPanel value={backgroundSettings} onChange={setBackgroundSettings} />
                     </PopoverContent>
                   </Popover>
@@ -1317,13 +1779,28 @@ const Index = () => {
                       <button
                         className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg border border-gray-600 transition-colors w-full flex items-center gap-2"
                         title="Klavye Kasa Rengi"
+                        onClick={(e) => {
+                          // Prevent click from propagating to parent and deselecting keys
+                          e.stopPropagation();
+                        }}
                       >
                         {/* Box icon for case */}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
                         <span>Klavye Kasa Rengi</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-96 p-4" align="end">
+                    <PopoverContent 
+                      className="w-96 p-4" 
+                      align="end"
+                      onClick={(e) => {
+                        // Prevent click from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                      onMouseDown={(e) => {
+                        // Prevent mousedown from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                    >
                       <CasePanel value={caseSettings} onChange={setCaseSettings} />
                     </PopoverContent>
                   </Popover>
@@ -1332,13 +1809,28 @@ const Index = () => {
                       <button
                         className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg border border-gray-600 transition-colors w-full flex items-center gap-2"
                         title="UI Renkleri"
+                        onClick={(e) => {
+                          // Prevent click from propagating to parent and deselecting keys
+                          e.stopPropagation();
+                        }}
                       >
                         {/* Layout icon for UI */}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z"/></svg>
                         <span>UI Renkleri</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-96 p-4 max-h-[600px] overflow-y-auto" align="end">
+                    <PopoverContent 
+                      className="w-96 p-4 max-h-[600px] overflow-y-auto" 
+                      align="end"
+                      onClick={(e) => {
+                        // Prevent click from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                      onMouseDown={(e) => {
+                        // Prevent mousedown from propagating to parent and deselecting keys
+                        e.stopPropagation();
+                      }}
+                    >
                       <UIPanel value={uiSettings} onChange={setUiSettings} />
                     </PopoverContent>
                   </Popover>

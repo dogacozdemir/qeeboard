@@ -62,6 +62,15 @@ export async function apiPut(path: string, body: unknown, init?: RequestInit) {
   return data
 }
 
+export async function apiPatch(path: string, body: unknown, init?: RequestInit) {
+  // Ensure path starts with / if it doesn't already
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(`${API_URL}${normalizedPath}`, { method: 'PATCH', headers: { ...authHeaders(), ...(init?.headers||{}) }, body: JSON.stringify(body), ...init })
+  const data = await res.json().catch(()=>null)
+  if (!res.ok) throw new Error(data?.message || `PATCH ${path} failed`)
+  return data
+}
+
 export async function apiDelete(path: string, body?: unknown, init?: RequestInit) {
   // Ensure path starts with / if it doesn't already
   const normalizedPath = path.startsWith('/') ? path : `/${path}`

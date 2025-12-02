@@ -18,13 +18,11 @@ export default function CartPage() {
   const [page, setPage] = useState<1 | 2>(1) // 1: Cart page, 2: Checkout page
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [addresses, setAddresses] = useState<Array<{ id:number; kind:'SHIPPING'|'BILLING'; fullName:string; line1:string; line2?:string; city:string; postalCode:string; country:string; phone?:string }>>([])
+  const [addresses, setAddresses] = useState<Array<{ id:number; kind:'SHIPPING'|'BILLING'; fullName:string; line1:string; line2?:string; city:string; state?:string; postalCode:string; country:string; phone?:string }>>([])
   const [shippingAddressId, setShippingAddressId] = useState<number | null>(null)
   const [billingAddressId, setBillingAddressId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<number>(0)
   const [shippingCost, setShippingCost] = useState<number>(0) // Kargo fiyatı
-  const [editingShippingAddrId, setEditingShippingAddrId] = useState<number | null>(null)
-  const [editingBillingAddrId, setEditingBillingAddrId] = useState<number | null>(null)
   const [useSameAddress, setUseSameAddress] = useState<boolean>(true)
   const navigate = useNavigate()
 
@@ -234,9 +232,9 @@ export default function CartPage() {
   const [billingState, setBillingState] = useState<string>('')
 
   // Debounce timers for auto-saving
-  const userUpdateTimer = useRef<NodeJS.Timeout | null>(null)
-  const shippingAddressUpdateTimer = useRef<NodeJS.Timeout | null>(null)
-  const billingAddressUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+  const userUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const shippingAddressUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const billingAddressUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-save user information when name, email, or phone changes
   const saveUserInfo = useCallback(async () => {

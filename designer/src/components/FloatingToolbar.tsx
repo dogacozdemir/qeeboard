@@ -80,26 +80,46 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   openSection,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [savedColors, setSavedColors] = useState<string[]>([]);
+  const [savedKeycapColors, setSavedKeycapColors] = useState<string[]>([]);
+  const [savedLegendColors, setSavedLegendColors] = useState<string[]>([]);
   const [showTextInput, setShowTextInput] = useState(false);
   
-  // Load saved colors from database on mount
+  // Load saved keycap colors from database on mount
   useEffect(() => {
-    const loadSavedColors = async () => {
+    const loadSavedKeycapColors = async () => {
       const userId = getUserIdFromToken();
       if (!userId) return;
       
       try {
-        const res = await apiGet(`/api/saved-colors?userId=${userId}`);
+        const res = await apiGet(`/api/saved-colors?userId=${userId}&type=keycap`);
         if (res.success && Array.isArray(res.data)) {
-          setSavedColors(res.data);
+          setSavedKeycapColors(res.data);
         }
       } catch (error) {
-        console.error('Failed to load saved colors:', error);
+        console.error('Failed to load saved keycap colors:', error);
       }
     };
     
-    loadSavedColors();
+    loadSavedKeycapColors();
+  }, []);
+  
+  // Load saved legend colors from database on mount
+  useEffect(() => {
+    const loadSavedLegendColors = async () => {
+      const userId = getUserIdFromToken();
+      if (!userId) return;
+      
+      try {
+        const res = await apiGet(`/api/saved-colors?userId=${userId}&type=legend`);
+        if (res.success && Array.isArray(res.data)) {
+          setSavedLegendColors(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to load saved legend colors:', error);
+      }
+    };
+    
+    loadSavedLegendColors();
   }, []);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showXSlider, setShowXSlider] = useState(false);
@@ -460,8 +480,30 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     : { backgroundColor: 'hsl(var(--card))' };
 
   return (
-    <div className="w-fit mx-auto" ref={toolbarRef}>
-      <div className="border border-border rounded-lg shadow-elevated p-2 sm:p-3" style={toolbarStyle}>
+    <div 
+      className="w-fit mx-auto" 
+      ref={toolbarRef}
+      onClick={(e) => {
+        // Prevent click from propagating to parent and deselecting keys
+        e.stopPropagation();
+      }}
+      onMouseDown={(e) => {
+        // Prevent mousedown from propagating to parent
+        e.stopPropagation();
+      }}
+    >
+      <div 
+        className="border border-border rounded-lg shadow-elevated p-2 sm:p-3" 
+        style={toolbarStyle}
+        onClick={(e) => {
+          // Prevent click from propagating to parent
+          e.stopPropagation();
+        }}
+        onMouseDown={(e) => {
+          // Prevent mousedown from propagating to parent
+          e.stopPropagation();
+        }}
+      >
         {/* Main Toolbar Row - Responsive Layout */}
         <div className="flex items-center justify-start gap-2 flex-wrap sm:flex-nowrap">
           
@@ -472,7 +514,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
+                onClick={(e) => {
+                  // Prevent click from propagating to parent and deselecting keys
+                  e.stopPropagation();
+                  e.preventDefault();
+                  
                   const nextOpen = !showColorPicker;
                   // Begin batch on open, end batch on close
                   if (nextOpen) { onBatchStart && onBatchStart(); } else { onBatchEnd && onBatchEnd(); }
@@ -492,12 +538,26 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   setShowRotSlider(false);
                   setShowSizeSlider(false);
                 }}
+                onMouseDown={(e) => {
+                  // Prevent mousedown from propagating to parent
+                  e.stopPropagation();
+                }}
                 className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
               >
                 <Palette className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
               </Button>
               {showColorPicker && (
-                <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 w-auto inline-block">
+                <div 
+                  className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 w-auto inline-block"
+                  onClick={(e) => {
+                    // Prevent click from propagating to parent and deselecting keys
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    // Prevent mousedown from propagating to parent
+                    e.stopPropagation();
+                  }}
+                >
                   {/* Side-by-side color pickers */}
                   <div className="flex items-start gap-2 mb-3">
                     {/* Keycap */}
@@ -516,29 +576,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                           onBlur={() => { if (localKeycapColor) { onColorCommit && onColorCommit(localKeycapColor); } }}
                           className="w-14 h-12 p-1 border-border bg-background"
                         />
-                        <button
-                          className="absolute -top-1 -right-1 h-3 w-3 rounded bg-card border border-border text-[9px] leading-3 flex items-center justify-center hover:bg-muted"
-                          onClick={async () => {
-                            const userId = getUserIdFromToken();
-                            if (!userId) return;
-                            
-                            if (savedColors.includes(selectedColor)) return;
-                            
-                            try {
-                              await apiPost('/api/saved-colors', {
-                                userId,
-                                color: selectedColor
-                              });
-                              setSavedColors([...savedColors, selectedColor]);
-                            } catch (error) {
-                              console.error('Failed to save color:', error);
-                            }
-                          }}
-                          title="Save color"
-                          aria-label="Save keycap color"
-                        >
-                          +
-                        </button>
+                        {/* Removed save button - saved colors will be shown below color pickers */}
                       </div>
                     </div>
                     {/* Legend */}
@@ -573,118 +611,190 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                           }}
                           className="w-14 h-12 p-1 border-border bg-background"
                         />
-                        <button
-                          className="absolute -top-1 -right-1 h-3 w-3 rounded bg-card border border-border text-[9px] leading-3 flex items-center justify-center hover:bg-muted"
-                          onClick={async () => {
-                            const userId = getUserIdFromToken();
-                            if (!userId) return;
-                            
-                            if (savedColors.includes(selectedTextColor)) return;
-                            
-                            try {
-                              await apiPost('/api/saved-colors', {
-                                userId,
-                                color: selectedTextColor
-                              });
-                              setSavedColors([...savedColors, selectedTextColor]);
-                            } catch (error) {
-                              console.error('Failed to save color:', error);
-                            }
-                          }}
-                          title="Save color"
-                          aria-label="Save legend color"
-                        >
-                          +
-                        </button>
+                        {/* Removed save button - saved colors will be shown below color pickers */}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Saved colors grid: rows of 8, '+' on empty slots, '×' to delete */}
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground">Saved colors</Label>
-                    {(() => {
-                      const count = savedColors.length <= 6 ? 6 : Math.ceil(savedColors.length / 8) * 8;
-                      const cells = Array.from({ length: count }, (_, i) => i);
-                      const perRow = count <= 6 ? 3 : 8;
-                      const rows: number[][] = [];
-                      for (let i = 0; i < cells.length; i += perRow) {
-                        rows.push(cells.slice(i, i + perRow));
-                      }
-                      return (
-                        <div className="space-y-0">
-                          {rows.map((row, rIdx) => (
-                            <div key={rIdx} className="flex gap-2">
-                              {row.map((i) => {
-                                const color = savedColors[i];
-                                if (color) {
+                  {/* Saved colors grids: one for keycap, one for legend */}
+                  <div className="space-y-3">
+                    {/* Saved Keycap Colors */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Saved Keycap Colors</Label>
+                      {(() => {
+                        const count = savedKeycapColors.length <= 6 ? 6 : Math.ceil(savedKeycapColors.length / 8) * 8;
+                        const cells = Array.from({ length: count }, (_, i) => i);
+                        const perRow = count <= 6 ? 3 : 8;
+                        const rows: number[][] = [];
+                        for (let i = 0; i < cells.length; i += perRow) {
+                          rows.push(cells.slice(i, i + perRow));
+                        }
+                        return (
+                          <div className="space-y-0">
+                            {rows.map((row, rIdx) => (
+                              <div key={rIdx} className="flex gap-2">
+                                {row.map((i) => {
+                                  const color = savedKeycapColors[i];
+                                  if (color) {
+                                    return (
+                                      <div key={i} className="relative">
+                                        <button
+                                          className="h-8 w-8 p-0 m-0 rounded-none border-0"
+                                          style={{ backgroundColor: color }}
+                                          onClick={() => {
+                                            onColorChange(color);
+                                            onColorCommit && onColorCommit(color);
+                                          }}
+                                          title={color}
+                                        />
+                                        <button
+                                          className="absolute -top-1 -right-1 h-3 w-3 rounded bg-card border border-border text-[9px] leading-3 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground"
+                                          onClick={async () => {
+                                            const userId = getUserIdFromToken();
+                                            if (!userId) return;
+                                            
+                                            try {
+                                              await apiDelete('/api/saved-colors', {
+                                                userId,
+                                                color,
+                                                type: 'keycap'
+                                              });
+                                              setSavedKeycapColors(savedKeycapColors.filter((_, idx) => idx !== i));
+                                            } catch (error) {
+                                              console.error('Failed to delete color:', error);
+                                            }
+                                          }}
+                                          aria-label="Remove saved keycap color"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    );
+                                  }
                                   return (
-                                    <div key={i} className="relative">
-                                      <button
-                                        className="h-8 w-8 p-0 m-0 rounded-none border-0"
-                                        style={{ backgroundColor: color }}
-                                        onClick={() => {
-                                          onColorChange(color);
-                                          onColorCommit && onColorCommit(color);
-                                        }}
-                                        title={color}
-                                      />
-                                      <button
-                                        className="absolute -top-1 -right-1 h-3 w-3 rounded bg-card border border-border text-[9px] leading-3 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground"
-                                        onClick={async () => {
-                                          const userId = getUserIdFromToken();
-                                          if (!userId) return;
-                                          
-                                          try {
-                                            await apiDelete('/api/saved-colors', {
-                                              userId,
-                                              color
-                                            });
-                                            setSavedColors(savedColors.filter((_, idx) => idx !== i));
-                                          } catch (error) {
-                                            console.error('Failed to delete color:', error);
-                                          }
-                                        }}
-                                        aria-label="Remove saved color"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
+                                    <button
+                                      key={i}
+                                      className="h-8 w-8 p-0 m-0 rounded-none border border-dashed border-border text-[9px] text-muted-foreground hover:bg-muted/40"
+                                      onClick={async () => {
+                                        const userId = getUserIdFromToken();
+                                        if (!userId) return;
+                                        
+                                        if (savedKeycapColors.includes(selectedColor)) return;
+                                        
+                                        try {
+                                          await apiPost('/api/saved-colors', {
+                                            userId,
+                                            color: selectedColor,
+                                            type: 'keycap'
+                                          });
+                                          const next = [...savedKeycapColors];
+                                          next[i] = selectedColor;
+                                          setSavedKeycapColors(next);
+                                        } catch (error) {
+                                          console.error('Failed to save color:', error);
+                                        }
+                                      }}
+                                      title="Save keycap color to this slot"
+                                    >
+                                      +
+                                    </button>
                                   );
-                                }
-                                return (
-                                  <button
-                                    key={i}
-                                    className="h-8 w-8 p-0 m-0 rounded-none border border-dashed border-border text-[9px] text-muted-foreground hover:bg-muted/40"
-                                    onClick={async () => {
-                                      const userId = getUserIdFromToken();
-                                      if (!userId) return;
-                                      
-                                      if (savedColors.includes(selectedColor)) return;
-                                      
-                                      try {
-                                        await apiPost('/api/saved-colors', {
-                                          userId,
-                                          color: selectedColor
-                                        });
-                                      const next = [...savedColors];
-                                      next[i] = selectedColor;
-                                      setSavedColors(next);
-                                      } catch (error) {
-                                        console.error('Failed to save color:', error);
-                                      }
-                                    }}
-                                    title="Save to this slot"
-                                  >
-                                    +
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    
+                    {/* Saved Legend Colors */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Saved Legend Colors</Label>
+                      {(() => {
+                        const count = savedLegendColors.length <= 6 ? 6 : Math.ceil(savedLegendColors.length / 8) * 8;
+                        const cells = Array.from({ length: count }, (_, i) => i);
+                        const perRow = count <= 6 ? 3 : 8;
+                        const rows: number[][] = [];
+                        for (let i = 0; i < cells.length; i += perRow) {
+                          rows.push(cells.slice(i, i + perRow));
+                        }
+                        return (
+                          <div className="space-y-0">
+                            {rows.map((row, rIdx) => (
+                              <div key={rIdx} className="flex gap-2">
+                                {row.map((i) => {
+                                  const color = savedLegendColors[i];
+                                  if (color) {
+                                    return (
+                                      <div key={i} className="relative">
+                                        <button
+                                          className="h-8 w-8 p-0 m-0 rounded-none border-0"
+                                          style={{ backgroundColor: color }}
+                                          onClick={() => {
+                                            onTextColorChange(color);
+                                            onTextColorCommit && onTextColorCommit(color);
+                                          }}
+                                          title={color}
+                                        />
+                                        <button
+                                          className="absolute -top-1 -right-1 h-3 w-3 rounded bg-card border border-border text-[9px] leading-3 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground"
+                                          onClick={async () => {
+                                            const userId = getUserIdFromToken();
+                                            if (!userId) return;
+                                            
+                                            try {
+                                              await apiDelete('/api/saved-colors', {
+                                                userId,
+                                                color,
+                                                type: 'legend'
+                                              });
+                                              setSavedLegendColors(savedLegendColors.filter((_, idx) => idx !== i));
+                                            } catch (error) {
+                                              console.error('Failed to delete color:', error);
+                                            }
+                                          }}
+                                          aria-label="Remove saved legend color"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      key={i}
+                                      className="h-8 w-8 p-0 m-0 rounded-none border border-dashed border-border text-[9px] text-muted-foreground hover:bg-muted/40"
+                                      onClick={async () => {
+                                        const userId = getUserIdFromToken();
+                                        if (!userId) return;
+                                        
+                                        if (savedLegendColors.includes(selectedTextColor)) return;
+                                        
+                                        try {
+                                          await apiPost('/api/saved-colors', {
+                                            userId,
+                                            color: selectedTextColor,
+                                            type: 'legend'
+                                          });
+                                          const next = [...savedLegendColors];
+                                          next[i] = selectedTextColor;
+                                          setSavedLegendColors(next);
+                                        } catch (error) {
+                                          console.error('Failed to save color:', error);
+                                        }
+                                      }}
+                                      title="Save legend color to this slot"
+                                    >
+                                      +
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               )}
