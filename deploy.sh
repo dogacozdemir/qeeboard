@@ -33,9 +33,9 @@ if [ ! -f ".env" ]; then
 fi
 
 npm install
-npm run build
 npm run db:generate
 npm run db:deploy
+npm run build
 
 echo -e "${GREEN}✓${NC} Backend built successfully"
 
@@ -43,12 +43,7 @@ echo -e "${GREEN}✓${NC} Backend built successfully"
 echo -e "\n${YELLOW}📦 Building frontend...${NC}"
 cd "$PROJECT_DIR/frontend"
 
-if [ ! -f ".env" ]; then
-    echo -e "${RED}✗${NC} Frontend .env file not found!"
-    echo "Please create .env file from .env.example"
-    exit 1
-fi
-
+# .env is optional for frontend
 npm install
 npm run build
 
@@ -58,12 +53,7 @@ echo -e "${GREEN}✓${NC} Frontend built successfully"
 echo -e "\n${YELLOW}📦 Building designer...${NC}"
 cd "$PROJECT_DIR/designer"
 
-if [ ! -f ".env" ]; then
-    echo -e "${RED}✗${NC} Designer .env file not found!"
-    echo "Please create .env file from .env.example"
-    exit 1
-fi
-
+# .env is optional for designer
 npm install
 npm run build
 

@@ -128,7 +128,7 @@ postgresql://qeeboard_user:güçlü_bir_şifre_buraya@localhost:5432/qeeboard_db
 5. **Backend, Frontend ve Designer'ı kurun:**
    ```bash
    cd /home/qeeboard/htdocs/www.qeeboard.com
-   # Backend
+   # Backend (ÖNEMLİ: db:generate build'den ÖNCE olmalı!)
    cd backend && npm install && npm run db:generate && npm run db:deploy && npm run build && cd ..
    # Frontend
    cd frontend && npm install && npm run build && cd ..
@@ -214,13 +214,13 @@ nano .env  # veya vi .env
 # Dependencies yükle
 npm install
 
-# Prisma client generate
+# Prisma client generate (BUILD'DEN ÖNCE OLMALI!)
 npm run db:generate
 
 # Database migrations (tabloları oluşturur)
 npm run db:deploy
 
-# Build
+# Build (Prisma client generate edildikten SONRA)
 npm run build
 ```
 
@@ -328,12 +328,13 @@ CloudPanel'de site oluşturduktan sonra:
 ```bash
 cd /home/qeeboard/htdocs/www.qeeboard.com
 
-# Backend güncelleme
+# Backend güncelleme (ÖNEMLİ: Doğru sıralama!)
 cd backend
 git pull  # veya yeni dosyaları yükleyin
 npm install
+npm run db:generate  # Prisma client'ı güncelle (BUILD'DEN ÖNCE!)
+npm run db:deploy    # Yeni migrations varsa çalıştır
 npm run build
-npm run db:deploy  # Yeni migrations varsa
 pm2 restart qeeboard-backend
 
 # Frontend güncelleme
@@ -352,6 +353,53 @@ npm run build
 ---
 
 ## Troubleshooting
+
+### Build Hataları
+
+#### Designer: "Cannot resolve import socket.io-client"
+**Sorun:** `socket.io-client` modülü bulunamıyor
+**Çözüm:**
+```bash
+cd /home/qeeboard/htdocs/www.qeeboard.com/designer
+npm install
+npm run build
+```
+
+#### Backend: "Cannot find module 'socket.io'"
+**Sorun:** `socket.io` modülü bulunamıyor
+**Çözüm:**
+```bash
+cd /home/qeeboard/htdocs/www.qeeboard.com/backend
+npm install
+npm run build
+```
+
+#### Backend: "Property 'shareLink' does not exist on type 'PrismaClient'"
+**Sorun:** Prisma client generate edilmemiş
+**Çözüm:**
+```bash
+cd /home/qeeboard/htdocs/www.qeeboard.com/backend
+npm install
+npm run db:generate  # ÖNEMLİ: Build'den ÖNCE!
+npm run build
+```
+
+#### Backend: "Property 'type' does not exist in type 'UserSavedColorSelect'"
+**Sorun:** Prisma client güncel değil (schema değişmiş ama client generate edilmemiş)
+**Çözüm:**
+```bash
+cd /home/qeeboard/htdocs/www.qeeboard.com/backend
+npm install
+npm run db:generate  # Prisma client'ı yeniden generate et
+npm run db:deploy    # Yeni migrations varsa çalıştır
+npm run build
+```
+
+**ÖNEMLİ:** Backend build sırası:
+1. `npm install` - Dependencies yükle
+2. `npm run db:generate` - Prisma client generate et (BUILD'DEN ÖNCE!)
+3. `npm run db:deploy` - Migrations çalıştır
+4. `npm run build` - TypeScript build
 
 ### Backend çalışmıyor
 ```bash
@@ -387,6 +435,18 @@ sudo systemctl reload nginx
 
 # Nginx error logları
 sudo tail -f /var/log/nginx/error.log
+```
+
+### Node.js Versiyon Uyarısı
+**Uyarı:** "Vite requires Node.js version 20.19+ or 22.12+"
+**Not:** Bu sadece bir uyarıdır, build başarılı olabilir. Ancak production için Node.js'i güncellemek önerilir:
+```bash
+# Node.js 20.x kurulumu (nvm ile)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 20
+nvm use 20
+nvm alias default 20
 ```
 
 ---
