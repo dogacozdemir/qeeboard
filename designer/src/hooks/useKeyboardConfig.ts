@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
-import { KeyboardConfig, LayoutType, KeycapLayer, LayoutStandard } from '@/types/keyboard';
+import { KeyboardConfig, LayoutType, KeycapLayer, LayoutStandard, KeyboardLanguage } from '@/types/keyboard';
 import { keyboardLayouts } from '@/data/layouts';
 import { useLayerManagement } from './useLayerManagement';
 import { ThemeType, getTheme, interpolateColor, calculatePositionFactor } from '@/data/themes';
 
 export const useKeyboardConfig = () => {
   const [config, setConfig] = useState<KeyboardConfig>({
-    layout: keyboardLayouts['60%-ANSI'] || keyboardLayouts['60%'] || Object.values(keyboardLayouts)[0],
+    layout: keyboardLayouts['60%-ANSI-TR'] || keyboardLayouts['60%-ANSI'] || keyboardLayouts['60%'] || Object.values(keyboardLayouts)[0],
     globalSettings: {
       theme: 'dark',
       font: 'Arial',
@@ -16,6 +16,7 @@ export const useKeyboardConfig = () => {
     allLayouts: { ...keyboardLayouts },
     currentLayoutType: '60%',
     layoutStandard: 'ANSI',
+    keyboardLanguage: 'TR',
     currentTheme: 'none',
   });
 
@@ -115,8 +116,8 @@ export const useKeyboardConfig = () => {
 
   const changeLayout = useCallback((layoutType: LayoutType) => {
     setConfigWithHistory(prev => {
-      const key = `${layoutType}-${prev.layoutStandard}`;
-      const existing = prev.allLayouts[key] || prev.allLayouts[layoutType] || keyboardLayouts[key] || keyboardLayouts[layoutType];
+      const key = `${layoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
+      const existing = prev.allLayouts[key] || prev.allLayouts[`${layoutType}-${prev.layoutStandard}`] || prev.allLayouts[layoutType] || keyboardLayouts[key] || keyboardLayouts[`${layoutType}-${prev.layoutStandard}`] || keyboardLayouts[layoutType];
       return {
         ...prev,
         layout: existing,
@@ -132,11 +133,28 @@ export const useKeyboardConfig = () => {
 
   const setLayoutStandard = useCallback((standard: LayoutStandard) => {
     setConfigWithHistory(prev => {
-      const key = `${prev.currentLayoutType}-${standard}`;
+      const key = `${prev.currentLayoutType}-${standard}-${prev.keyboardLanguage}`;
       const nextLayout = prev.allLayouts[key] || keyboardLayouts[key] || prev.layout;
       return {
         ...prev,
         layoutStandard: standard,
+        layout: nextLayout,
+        selectedKeys: [],
+        allLayouts: {
+          ...prev.allLayouts,
+          [key]: nextLayout,
+        },
+      };
+    });
+  }, []);
+
+  const setKeyboardLanguage = useCallback((language: KeyboardLanguage) => {
+    setConfigWithHistory(prev => {
+      const key = `${prev.currentLayoutType}-${prev.layoutStandard}-${language}`;
+      const nextLayout = prev.allLayouts[key] || keyboardLayouts[key] || prev.layout;
+      return {
+        ...prev,
+        keyboardLanguage: language,
         layout: nextLayout,
         selectedKeys: [],
         allLayouts: {
@@ -170,7 +188,7 @@ export const useKeyboardConfig = () => {
       const updatedKeys = prev.layout.keys.map(key =>
         keyIds.includes(key.id) ? { ...key, color } : key
       );
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -188,7 +206,7 @@ export const useKeyboardConfig = () => {
       const updatedKeys = prev.layout.keys.map(key =>
         keyIds.includes(key.id) ? { ...key, textColor } : key
       );
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -207,7 +225,7 @@ export const useKeyboardConfig = () => {
       const updatedKeys = prev.layout.keys.map(key =>
         keyIds.includes(key.id) ? { ...key, color } : key
       );
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -225,7 +243,41 @@ export const useKeyboardConfig = () => {
       const updatedKeys = prev.layout.keys.map(key =>
         keyIds.includes(key.id) ? { ...key, textColor } : key
       );
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
+      const updatedLayout = { ...prev.layout, keys: updatedKeys };
+      return {
+        ...prev,
+        layout: updatedLayout,
+        allLayouts: {
+          ...prev.allLayouts,
+          [currentLayoutKey]: updatedLayout,
+        },
+      };
+    });
+  }, []);
+
+  // Layer-specific preview (no history) for text color changes
+  const previewLayersBatch = useCallback((items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }>) => {
+    if (!items || items.length === 0) return;
+    setConfig(prev => {
+      const itemsByKey = new Map<string, Array<{ layerId: string; updates: Partial<KeycapLayer> }>>();
+      items.forEach(it => {
+        const arr = itemsByKey.get(it.keyId) || [];
+        arr.push({ layerId: it.layerId, updates: it.updates });
+        itemsByKey.set(it.keyId, arr);
+      });
+
+      const updatedKeys = prev.layout.keys.map(key => {
+        const updatesForKey = itemsByKey.get(key.id);
+        if (!updatesForKey || updatesForKey.length === 0) return key;
+        const newLayers = (key.layers || []).map(layer => {
+          const match = updatesForKey.find(u => u.layerId === layer.id);
+          return match ? { ...layer, ...match.updates } : layer;
+        });
+        return { ...key, layers: newLayers };
+      });
+
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -318,8 +370,8 @@ export const useKeyboardConfig = () => {
 
   const resetLayout = useCallback(() => {
     setConfigWithHistory(prev => {
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
-      const originalLayout = keyboardLayouts[currentLayoutKey] || keyboardLayouts[prev.currentLayoutType] || keyboardLayouts['60%-ANSI'];
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
+      const originalLayout = keyboardLayouts[currentLayoutKey] || keyboardLayouts[`${prev.currentLayoutType}-${prev.layoutStandard}`] || keyboardLayouts[prev.currentLayoutType] || keyboardLayouts['60%-ANSI-TR'] || keyboardLayouts['60%-ANSI'];
       
       return {
         ...prev,
@@ -442,7 +494,7 @@ export const useKeyboardConfig = () => {
         newGroups['TwoColor-Center'] = centerIds;
       }
 
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       return {
         ...prev,
         layout,
@@ -476,7 +528,7 @@ export const useKeyboardConfig = () => {
         return { ...key, layers: newLayers };
       });
 
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -500,6 +552,7 @@ export const useKeyboardConfig = () => {
       const nextLayout = hasKeys ? candidateLayout : prev.layout
       const nextCurrentLayoutType = (layoutData?.currentLayoutType || layoutType || prev.currentLayoutType) as LayoutType
       const nextLayoutStandard = (layoutData?.layoutStandard || standard || prev.layoutStandard) as LayoutStandard
+      const nextKeyboardLanguage = (layoutData?.keyboardLanguage || prev.keyboardLanguage) as KeyboardLanguage
       
       // Update all fields from layoutData if available
       const nextGlobalSettings = layoutData?.globalSettings || prev.globalSettings
@@ -513,6 +566,7 @@ export const useKeyboardConfig = () => {
         groups: nextGroups,
         currentLayoutType: nextCurrentLayoutType,
         layoutStandard: nextLayoutStandard,
+        keyboardLanguage: nextKeyboardLanguage,
         currentTheme: nextCurrentTheme,
         // Preserve selectedKeys during remote updates to prevent deselection when collaborating
         // Only clear selection when explicitly loading a new config (not during real-time updates)
@@ -536,6 +590,7 @@ export const useKeyboardConfig = () => {
     endBatch,
     changeLayout,
     setLayoutStandard,
+    setKeyboardLanguage,
     selectKey,
     selectKeys,
     clearSelection,
@@ -562,6 +617,7 @@ export const useKeyboardConfig = () => {
     // Theme management
     applyTheme,
     updateLayersBatch,
+    previewLayersBatch,
     hydrateFromLayoutData,
   };
 };

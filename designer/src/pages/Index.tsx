@@ -25,10 +25,15 @@ import CasePanel from '@/components/CasePanel';
 import UIPanel from '@/components/UIPanel';
 import { useToast } from '@/hooks/use-toast';
 import { io, Socket } from 'socket.io-client';
+import KeycapTextEditor from '@/components/KeycapTextEditor';
+import KeycapImageEditor from '@/components/KeycapImageEditor';
+import BottomIconPicker from '@/components/BottomIconPicker';
 
 const Index = () => {
   const [view3D, setView3D] = useState(false);
-  const [toolbarOpenSection, setToolbarOpenSection] = useState<'text' | 'icon' | 'image' | null>(null);
+  const [showTextEditor, setShowTextEditor] = useState(false);
+  const [showImageEditor, setShowImageEditor] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
   const [uiOpen, setUiOpen] = useState(false);
@@ -312,6 +317,7 @@ const Index = () => {
     selectedLayerId,
     changeLayout,
     setLayoutStandard,
+    setKeyboardLanguage,
     selectKey,
     selectKeys,
     clearSelection,
@@ -319,6 +325,7 @@ const Index = () => {
     updateKeycapTextColor: originalUpdateKeycapTextColor,
     previewKeycapColor,
     previewKeycapTextColor,
+    previewLayersBatch,
     startEditingKey,
     stopEditingKey,
     getSelectedKey,
@@ -698,9 +705,31 @@ const Index = () => {
   const selectedKeys = getSelectedKeys();
   const editingKey = getSelectedKey();
   const currentKeyLayers = editingKeyId ? getKeyLayers(editingKeyId) : [];
-  const selectedLayer = selectedLayerId 
-    ? currentKeyLayers.find(l => l.id === selectedLayerId) 
-    : null;
+
+  // Calculate keycap position for text/image editors
+  const getKeycapPosition = (): { x: number; y: number; width: number; height: number } | undefined => {
+    if (!editingKeyId || isMultiSelection) return undefined;
+    
+    const selectedKey = config.layout.keys.find(k => k.id === editingKeyId);
+    if (!selectedKey) return undefined;
+
+    const UNIT = 48;
+    const BASE_SCALE = 1.1;
+    const CASE_PADDING = 20;
+
+    return {
+      x: selectedKey.x * UNIT * BASE_SCALE + CASE_PADDING,
+      y: selectedKey.y * UNIT * BASE_SCALE + CASE_PADDING,
+      width: selectedKey.width * UNIT * BASE_SCALE,
+      height: selectedKey.height * UNIT * BASE_SCALE,
+    };
+  };
+
+  // Calculate layer preview height (approximate)
+  const LAYER_PREVIEW_HEIGHT = 60; // Approximate height of KeyLayerPreview
+
+  // Keyboard case ref for positioning - will be set by KeyboardPreview
+  const keyboardCaseRef = useRef<HTMLDivElement>(null);
 
   // Multi-selection stats and selected layer IDs
   // If multiple keys are selected, treat as multi-selection (even if editingKeyId is set)
@@ -710,6 +739,47 @@ const Index = () => {
   
   // Use previewKeys if available (during drag selection), otherwise use config.selectedKeys
   const activeKeys = previewKeys.length > 0 ? previewKeys : config.selectedKeys;
+  
+  // Find selectedLayer from selectedLayerIds first (more accurate), then fallback to selectedLayerId
+  // This must be after selectedLayerIds is defined
+  const selectedLayer = (() => {
+    if (selectedLayerIds.length > 0) {
+      // Find the first selected layer from any selected key
+      for (const keyId of config.selectedKeys) {
+        const layers = getKeyLayers(keyId);
+        const layer = layers.find(l => selectedLayerIds.includes(l.id));
+        if (layer) return layer;
+      }
+    }
+    // Fallback to old behavior: find from editingKeyId's layers
+    if (selectedLayerId && currentKeyLayers.length > 0) {
+      return currentKeyLayers.find(l => l.id === selectedLayerId) || null;
+    }
+    return null;
+  })();
+
+  // Auto-open icon picker when icon layer is selected
+  useEffect(() => {
+    if (selectedLayer?.type === 'icon' && !showIconPicker) {
+      setShowIconPicker(true);
+      setShowTextEditor(false);
+      setShowImageEditor(false);
+    }
+  }, [selectedLayer?.type, selectedLayer?.id]);
+
+  // Auto-open text editor when text layer is selected (if not already open)
+  useEffect(() => {
+    if (selectedLayer?.type === 'text' && !showTextEditor && !showImageEditor && !showIconPicker) {
+      setShowTextEditor(true);
+    }
+  }, [selectedLayer?.type, selectedLayer?.id]);
+
+  // Auto-open image editor when image layer is selected (if not already open)
+  useEffect(() => {
+    if (selectedLayer?.type === 'image' && !showImageEditor && !showTextEditor && !showIconPicker) {
+      setShowImageEditor(true);
+    }
+  }, [selectedLayer?.type, selectedLayer?.id]);
   
   // Calculate stats for all selected keys (including single selection and preview)
   const multiSelectionStats = activeKeys.length > 0 ? (() => {
@@ -733,6 +803,13 @@ const Index = () => {
       stopEditingKey();
     }
   }, [isMultiSelection, editingKeyId, stopEditingKey]);
+
+  // Clear editingKeyId when selection is cleared (no keys selected)
+  useEffect(() => {
+    if (config.selectedKeys.length === 0 && editingKeyId) {
+      stopEditingKey();
+    }
+  }, [config.selectedKeys.length, editingKeyId, stopEditingKey]);
 
   // Track manual layer selection to prevent useEffect from overriding it
   const manualLayerSelectionRef = useRef<{ layerId: string; timestamp: number } | null>(null);
@@ -955,8 +1032,14 @@ const Index = () => {
       }
       
       if (keyIdsToPreview.length > 0 && commitData) {
-        // Immediate visual preview
-        previewKeycapTextColor(keyIdsToPreview, textColor);
+        // Immediate visual preview - use layer-specific preview if selectedLayerIds is set
+        if (selectedLayerIds.length > 0 && 'items' in commitData) {
+          // Layer-specific preview: only update selected layers
+          previewLayersBatch(commitData.items);
+        } else {
+          // Fallback to old behavior: preview entire key
+          previewKeycapTextColor(keyIdsToPreview, textColor);
+        }
         
         // Step 2: Throttled commit (updates config state and triggers auto-save/socket)
         pendingTextColorCommitRef.current = commitData;
@@ -981,7 +1064,7 @@ const Index = () => {
         }, COLOR_COMMIT_THROTTLE_MS);
       }
     }
-  }, [config.selectedKeys, selectedLayerIds, editingKeyId, selectedLayer, previewKeycapTextColor, updateLayersBatch, updateLayer, updateKeycapTextColor, getKeyLayers]);
+  }, [config.selectedKeys, selectedLayerIds, editingKeyId, selectedLayer, previewKeycapTextColor, previewLayersBatch, updateLayersBatch, updateLayer, updateKeycapTextColor, getKeyLayers]);
 
   const handleColorCommit = useCallback((color: string) => {
     // Final commit: clear any pending throttle and apply immediately
@@ -1410,6 +1493,8 @@ const Index = () => {
               onLayoutChange={changeLayout}
               layoutStandard={config.layoutStandard}
               onLayoutStandardChange={(std) => setLayoutStandard(std)}
+              keyboardLanguage={config.keyboardLanguage}
+              onLanguageChange={setKeyboardLanguage}
               groups={config.groups}
               selectedKeys={activeKeys}
               onSaveGroup={saveGroup}
@@ -1448,9 +1533,17 @@ const Index = () => {
                   activeKeys.forEach(keyId => {
                     addLayer(keyId, 'text');
                   });
+                  // Open text editor for multi-selection
+                  setShowTextEditor(true);
+                  setShowImageEditor(false);
+                  setShowIconPicker(false);
                 } else if (editingKeyId) {
                   // Single selection: add layer to editing key
                   addLayer(editingKeyId, 'text');
+                  // Open text editor
+                  setShowTextEditor(true);
+                  setShowImageEditor(false);
+                  setShowIconPicker(false);
                 }
               }}
               onAddImageLayer={() => {
@@ -1459,9 +1552,17 @@ const Index = () => {
                   activeKeys.forEach(keyId => {
                     addLayer(keyId, 'image');
                   });
+                  // Open image editor for multi-selection
+                  setShowImageEditor(true);
+                  setShowTextEditor(false);
+                  setShowIconPicker(false);
                 } else if (editingKeyId) {
                   // Single selection: add layer to editing key
                   addLayer(editingKeyId, 'image');
+                  // Open image editor
+                  setShowImageEditor(true);
+                  setShowTextEditor(false);
+                  setShowIconPicker(false);
                 }
               }}
                 onAddIconLayer={() => {
@@ -1470,9 +1571,17 @@ const Index = () => {
                     activeKeys.forEach(keyId => {
                       addLayer(keyId, 'icon' as any);
                     });
+                    // Open icon picker for multi-selection
+                    setShowIconPicker(true);
+                    setShowTextEditor(false);
+                    setShowImageEditor(false);
                   } else if (editingKeyId) {
                     // Single selection: add layer to editing key
                     addLayer(editingKeyId, 'icon' as any);
+                    // Open icon picker
+                    setShowIconPicker(true);
+                    setShowTextEditor(false);
+                    setShowImageEditor(false);
                   }
                 }}
                 isMultiSelection={previewKeys.length > 1 || isMultiSelection}
@@ -1543,13 +1652,19 @@ const Index = () => {
                   // Select the layer first
                   handleLayerSelect(layer.id);
                   
-                  // Open the appropriate toolbar section based on layer type
+                  // Open the appropriate editor based on layer type
                   if (layer.type === 'text') {
-                    setToolbarOpenSection('text');
+                    setShowTextEditor(true);
+                    setShowImageEditor(false);
+                    setShowIconPicker(false);
                   } else if (layer.type === 'icon') {
-                    setToolbarOpenSection('icon');
+                    setShowIconPicker(true);
+                    setShowTextEditor(false);
+                    setShowImageEditor(false);
                   } else if (layer.type === 'image') {
-                    setToolbarOpenSection('image');
+                    setShowImageEditor(true);
+                    setShowTextEditor(false);
+                    setShowIconPicker(false);
                   }
                 }}
             />
@@ -1583,7 +1698,6 @@ const Index = () => {
                     onBatchStart={beginBatch}
                     onBatchEnd={endBatch}
                     toolbarSettings={uiSettings?.toolbar}
-                    openSection={toolbarOpenSection}
                   />
                 </div>
               </div>
@@ -1617,15 +1731,24 @@ const Index = () => {
                       currentKeyLayers={currentKeyLayers}
                       selectedLayerId={selectedLayerId}
                       onLayerSelect={handleLayerSelect}
+                      onCloseEditing={stopEditingKey}
                       onAddTextLayer={() => {
                         if (isMultiSelection) {
                           // Multi-selection: add layer to all selected keys
                           activeKeys.forEach(keyId => {
                             addLayer(keyId, 'text');
                           });
+                          // Open text editor for multi-selection
+                          setShowTextEditor(true);
+                          setShowImageEditor(false);
+                          setShowIconPicker(false);
                         } else if (editingKeyId) {
                           // Single selection: add layer to editing key
                           addLayer(editingKeyId, 'text');
+                          // Open text editor
+                          setShowTextEditor(true);
+                          setShowImageEditor(false);
+                          setShowIconPicker(false);
                         }
                       }}
                       onAddImageLayer={() => {
@@ -1634,9 +1757,17 @@ const Index = () => {
                           activeKeys.forEach(keyId => {
                             addLayer(keyId, 'image');
                           });
+                          // Open image editor for multi-selection
+                          setShowImageEditor(true);
+                          setShowTextEditor(false);
+                          setShowIconPicker(false);
                         } else if (editingKeyId) {
                           // Single selection: add layer to editing key
                           addLayer(editingKeyId, 'image');
+                          // Open image editor
+                          setShowImageEditor(true);
+                          setShowTextEditor(false);
+                          setShowIconPicker(false);
                         }
                       }}
                       onAddIconLayer={() => {
@@ -1645,9 +1776,17 @@ const Index = () => {
                           activeKeys.forEach(keyId => {
                             addLayer(keyId, 'icon' as any);
                           });
+                          // Open icon picker for multi-selection
+                          setShowIconPicker(true);
+                          setShowTextEditor(false);
+                          setShowImageEditor(false);
                         } else if (editingKeyId) {
                           // Single selection: add layer to editing key
                           addLayer(editingKeyId, 'icon' as any);
+                          // Open icon picker
+                          setShowIconPicker(true);
+                          setShowTextEditor(false);
+                          setShowImageEditor(false);
                         }
                       }}
                       onLayerTypeChange={(layerId, newType) => {
@@ -1672,21 +1811,92 @@ const Index = () => {
                         }
                       }}
                       onOpenToolbarSection={(section) => {
-                        setToolbarOpenSection(section);
-                        // Reset after a short delay to allow the section to open
-                        setTimeout(() => setToolbarOpenSection(null), 100);
+                        // Open new editors instead of toolbar
+                        if (section === 'text') {
+                          setShowTextEditor(true);
+                          setShowImageEditor(false);
+                          setShowIconPicker(false);
+                        } else if (section === 'image') {
+                          setShowImageEditor(true);
+                          setShowTextEditor(false);
+                          setShowIconPicker(false);
+                        } else if (section === 'icon') {
+                          setShowIconPicker(true);
+                          setShowTextEditor(false);
+                          setShowImageEditor(false);
+                        }
                       }}
                       currentTheme={config.currentTheme}
                       view3D={view3D}
                       onView3DToggle={() => setView3D(!view3D)}
                       caseSettings={caseSettings}
+                      keyboardCaseRef={keyboardCaseRef}
                     />
                   </DragSelection>
                 )}
                 
               </div>
+
+              {/* Text Editor - Above keycap or center for multi-selection */}
+              {showTextEditor && (
+                <KeycapTextEditor
+                  selectedLayer={selectedLayer}
+                  selectedLayerIds={selectedLayerIds}
+                  editingKey={editingKey}
+                  selectedKeys={selectedKeys}
+                  isMultiSelection={isMultiSelection}
+                  getKeyLayers={getKeyLayers}
+                  onLegendChange={(keyId, layerId, content) => {
+                    updateLayer(keyId, layerId, { content });
+                  }}
+                  onLayerUpdate={updateLayer}
+                  onBatchLayerUpdates={handleBatchLayerUpdates}
+                  keyPosition={getKeycapPosition()}
+                  layerPreviewHeight={LAYER_PREVIEW_HEIGHT}
+                  keyboardCaseRef={keyboardCaseRef}
+                  onClose={() => setShowTextEditor(false)}
+                />
+              )}
+
+              {/* Image Editor - Above keycap or center for multi-selection */}
+              {showImageEditor && (
+                <KeycapImageEditor
+                  selectedLayer={selectedLayer}
+                  selectedLayerIds={selectedLayerIds}
+                  editingKey={editingKey}
+                  selectedKeys={selectedKeys}
+                  isMultiSelection={isMultiSelection}
+                  getKeyLayers={getKeyLayers}
+                  onLayerUpdate={updateLayer}
+                  onBatchLayerUpdates={handleBatchLayerUpdates}
+                  keyPosition={getKeycapPosition()}
+                  layerPreviewHeight={LAYER_PREVIEW_HEIGHT}
+                  keyboardCaseRef={keyboardCaseRef}
+                  onClose={() => setShowImageEditor(false)}
+                />
+              )}
             </div>
           </div>
+
+          {/* Icon Picker - Bottom of screen, full width from sidebar end */}
+          {showIconPicker && (
+            <BottomIconPicker
+              selectedLayer={selectedLayer}
+              selectedLayerIds={selectedLayerIds}
+              editingKey={editingKey}
+              selectedKeys={selectedKeys}
+              isMultiSelection={isMultiSelection}
+              getKeyLayers={getKeyLayers}
+              onLegendChange={(keyId, layerId, content) => {
+                updateLayer(keyId, layerId, { content });
+              }}
+              onLayerUpdate={updateLayer}
+              onBatchLayerUpdates={handleBatchLayerUpdates}
+              sidebarWidth={320} // xl:w-80 = 320px
+              footerHeight={48} // Approximate footer height
+              onClose={() => setShowIconPicker(false)}
+            />
+          )}
 
         {/* Saved Configs Modal */}
         <SavedConfigsModal

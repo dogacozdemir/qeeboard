@@ -13,7 +13,6 @@ import {
   RotateCw,
   FlipHorizontal,
   FlipVertical,
-  Type,
   Bold,
   Italic,
   Underline,
@@ -21,15 +20,11 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  Image,
-  Upload,
   Move,
   Maximize2,
   MoveVertical,
   MoveHorizontal
 } from 'lucide-react';
-import { IconPicker } from './IconPicker';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { KeycapLayer } from '@/types/keyboard';
 
 interface FloatingToolbarProps {
@@ -53,7 +48,6 @@ interface FloatingToolbarProps {
   onBatchStart?: () => void;
   onBatchEnd?: () => void;
   toolbarSettings?: { mode: 'solid'|'gradient'|'default'; solid?: string; from?: string; to?: string; angle?: number };
-  openSection?: 'text' | 'icon' | 'image' | null;
 }
 
 const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
@@ -77,12 +71,10 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onColorCommit,
   onTextColorCommit,
   toolbarSettings,
-  openSection,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [savedKeycapColors, setSavedKeycapColors] = useState<string[]>([]);
   const [savedLegendColors, setSavedLegendColors] = useState<string[]>([]);
-  const [showTextInput, setShowTextInput] = useState(false);
   
   // Load saved keycap colors from database on mount
   useEffect(() => {
@@ -121,12 +113,10 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     
     loadSavedLegendColors();
   }, []);
-  const [showImageUpload, setShowImageUpload] = useState(false);
   const [showXSlider, setShowXSlider] = useState(false);
   const [showYSlider, setShowYSlider] = useState(false);
   const [showRotSlider, setShowRotSlider] = useState(false);
   const [showSizeSlider, setShowSizeSlider] = useState(false);
-  const [showIconPicker, setShowIconPicker] = useState(false);
   // Local color state to avoid committing on each drag
   const [localKeycapColor, setLocalKeycapColor] = useState<string | null>(null);
   const [localLegendColor, setLocalLegendColor] = useState<string | null>(null);
@@ -139,7 +129,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const [localPositionY, setLocalPositionY] = useState([0]);
   const [localRotation, setLocalRotation] = useState([0]);
   const [localFontSize, setLocalFontSize] = useState([14]);
-  const [localImageOpacity, setLocalImageOpacity] = useState([1]);
   // Local state for input values (to allow free typing)
   // Use null to indicate "not editing", empty string means "currently editing/empty"
   const [inputPositionX, setInputPositionX] = useState<string | null>(null);
@@ -148,9 +137,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const [inputFontSize, setInputFontSize] = useState<string | null>(null);
   // Track the layer ID to detect when a different layer is selected
   const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
-  
-  // Local state for text input
-  const [localTextValue, setLocalTextValue] = useState('');
 
   // Helper function to determine if we're in multiselect mode
   const isMultiselect = selectedKeysCount > 1;
@@ -166,7 +152,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         setLocalPositionY([selectedLayer.offsetY || 0]);
         setLocalRotation([selectedLayer.rotation || 0]);
         setLocalFontSize([selectedLayer.fontSize || 14]);
-        setLocalImageOpacity([selectedLayer.opacity !== undefined ? selectedLayer.opacity : 1]);
         setInputPositionX(null);
         setInputPositionY(null);
         setInputRotation(null);
@@ -186,62 +171,12 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         if (inputFontSize === null) {
           setLocalFontSize([selectedLayer.fontSize || 14]);
         }
-        // Always sync opacity for image layers
-        if (selectedLayer.type === 'image') {
-          setLocalImageOpacity([selectedLayer.opacity !== undefined ? selectedLayer.opacity : 1]);
-        }
       }
     } else {
       setCurrentLayerId(null);
     }
   }, [selectedLayer, currentLayerId, inputPositionX, inputPositionY, inputRotation, inputFontSize]);
 
-  // Open section when openSection prop changes
-  useEffect(() => {
-    if (openSection === 'text') {
-      setShowTextInput(true);
-      setShowImageUpload(false);
-      setShowIconPicker(false);
-      setShowSizeSlider(false);
-      setShowColorPicker(false);
-      setShowXSlider(false);
-      setShowYSlider(false);
-      setShowRotSlider(false);
-    } else if (openSection === 'image') {
-      setShowImageUpload(true);
-      setShowTextInput(false);
-      setShowIconPicker(false);
-      setShowSizeSlider(false);
-      setShowColorPicker(false);
-      setShowXSlider(false);
-      setShowYSlider(false);
-      setShowRotSlider(false);
-    } else if (openSection === 'icon') {
-      setShowIconPicker(true);
-      setShowTextInput(false);
-      setShowImageUpload(false);
-      setShowSizeSlider(false);
-      setShowColorPicker(false);
-      setShowXSlider(false);
-      setShowYSlider(false);
-      setShowRotSlider(false);
-    }
-  }, [openSection]);
-
-  // Initialize text value when text input panel opens
-  useEffect(() => {
-    if (showTextInput) {
-      if (isMultiselect) {
-        // For multiselect, start with empty value
-        setLocalTextValue('');
-      } else if (selectedLayer) {
-        // For single select, show current layer content
-        setLocalTextValue(selectedLayer.content || '');
-      } else {
-        setLocalTextValue('');
-      }
-    }
-  }, [showTextInput, isMultiselect, selectedLayer]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -251,15 +186,10 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
           onBatchEnd && onBatchEnd();
         }
         setShowColorPicker(false);
-        setShowTextInput(false);
-        setShowImageUpload(false);
         setShowXSlider(false);
         setShowYSlider(false);
         setShowRotSlider(false);
         setShowSizeSlider(false);
-        setShowIconPicker(false);
-        // Clear text input when panel closes
-        setLocalTextValue('');
       }
     };
 
@@ -303,28 +233,18 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     return editingKey ? [editingKey] : [];
   };
   
-  // Helper function to ensure all keys have at least one layer
-  const ensureLayersExist = (targetKeys: any[], layerType: 'text' | 'image' | 'icon' = 'text') => {
-    targetKeys.forEach(key => {
-      const layers = key.layers || [];
-      if (layers.length === 0) {
-        // Create a new layer for keys that don't have any layers
-        onAddLayer(key.id, layerType);
-      }
-    });
-  };
-
   // Helper function to apply updates to multiple keys
   const applyToMultipleKeys = (updates: Partial<KeycapLayer>) => {
     const targetKeys = getTargetKeys();
     if (targetKeys.length === 0) return;
     
-    // If selectedLayerIds is provided and has items, use it for both multi-select and single select
+    // ALWAYS prioritize selectedLayerIds if it has items - this ensures only selected layers are updated
     if (selectedLayerIds.length > 0 && getKeyLayers) {
       const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
       targetKeys.forEach(key => {
         const layers = getKeyLayers(key.id);
         layers.forEach(layer => {
+          // Only update layers that are in selectedLayerIds
           if (selectedLayerIds.includes(layer.id)) {
             items.push({ keyId: key.id, layerId: layer.id, updates });
           }
@@ -335,6 +255,13 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         if (onBatchLayerUpdates) onBatchLayerUpdates(items);
         else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, updates));
       }
+      return; // Early return - don't use fallbacks when selectedLayerIds is set
+    }
+    
+    // Fallback: only use selectedLayer if selectedLayerIds is empty (shouldn't happen in normal flow)
+    if (editingKey && selectedLayer && !isMultiselect) {
+      // Single select fallback: use selectedLayer
+      onLayerUpdate(editingKey.id, selectedLayer.id, updates);
     } else if (isMultiselect) {
       // Multi-select fallback: update first layer of each key (old behavior)
       const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
@@ -349,16 +276,56 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         if (onBatchLayerUpdates) onBatchLayerUpdates(items);
         else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, updates));
       }
-    } else if (editingKey && selectedLayer) {
-      // Single select fallback: use selectedLayer
-      onLayerUpdate(editingKey.id, selectedLayer.id, updates);
     }
   };
 
 
   // Debounced update to parent component
+  // Use selectedLayerIds to update only selected layers, not all layers
   useEffect(() => {
-    if (editingKey && selectedLayer && onLayerUpdate) {
+    // Only update if we have selectedLayerIds and getKeyLayers function
+    if (selectedLayerIds.length > 0 && getKeyLayers && onBatchLayerUpdates) {
+      const timeoutId = setTimeout(() => {
+        const updates: Partial<KeycapLayer> = {
+          offsetX: localPositionX[0],
+          offsetY: localPositionY[0],
+          rotation: localRotation[0],
+        };
+        
+        // Only include font size if the layer already has a font size set or if it's been manually changed
+        const firstSelectedLayer = (() => {
+          const targetKeys = getTargetKeys();
+          for (const key of targetKeys) {
+            const layers = getKeyLayers(key.id);
+            const layer = layers.find(l => selectedLayerIds.includes(l.id));
+            if (layer) return layer;
+          }
+          return null;
+        })();
+        
+        if (firstSelectedLayer && (firstSelectedLayer.fontSize !== undefined || localFontSize[0] !== 14)) {
+          updates.fontSize = localFontSize[0];
+        }
+        
+        // Apply updates only to selected layers
+        const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
+        const targetKeys = getTargetKeys();
+        targetKeys.forEach(key => {
+          const layers = getKeyLayers(key.id);
+          layers.forEach(layer => {
+            if (selectedLayerIds.includes(layer.id)) {
+              items.push({ keyId: key.id, layerId: layer.id, updates });
+            }
+          });
+        });
+        
+        if (items.length > 0) {
+          onBatchLayerUpdates(items);
+        }
+      }, 10); // Small delay to prevent excessive updates
+      return () => clearTimeout(timeoutId);
+    } else if (editingKey && selectedLayer && onLayerUpdate && selectedLayerIds.length === 0) {
+      // Fallback for single layer selection when selectedLayerIds is not set
       const timeoutId = setTimeout(() => {
         const updates: Partial<KeycapLayer> = {
           offsetX: localPositionX[0],
@@ -375,7 +342,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
       }, 10); // Small delay to prevent excessive updates
       return () => clearTimeout(timeoutId);
     }
-  }, [localPositionX, localPositionY, localRotation, localFontSize, editingKey, selectedLayer, onLayerUpdate]);
+  }, [localPositionX, localPositionY, localRotation, localFontSize, editingKey, selectedLayer, selectedLayerIds, getKeyLayers, onLayerUpdate, onBatchLayerUpdates]);
 
   const startEyedropper = useCallback(async () => {
     if ('EyeDropper' in window) {
@@ -422,49 +389,16 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
   const handleFontSizeChange = useCallback((value: number[]) => {
     setLocalFontSize(value);
-  }, []);
-
-  const handleImageOpacityChange = useCallback((value: number[]) => {
-    setLocalImageOpacity(value);
-    applyToMultipleKeys({ opacity: value[0] });
+    // Apply font size change immediately to selected layers
+    applyToMultipleKeys({ fontSize: value[0] });
   }, [applyToMultipleKeys]);
+
 
   const handleTextStyleChange = useCallback((style: 'bold' | 'italic' | 'underline') => {
     const currentStyle = selectedLayer?.[style] || false;
     applyToMultipleKeys({ [style]: !currentStyle });
   }, [applyToMultipleKeys, selectedLayer]);
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const targetKeys = getTargetKeys();
-          if (isMultiselect) {
-            // Ensure all keys have image layers before applying changes
-            ensureLayersExist(targetKeys, 'image');
-            const updates = { 
-              content: event.target.result as string,
-              type: 'image' as const,
-              opacity: 1 // Default opacity when uploading image
-            };
-            applyToMultipleKeys(updates);
-          } else {
-            const updates = { 
-              content: event.target.result as string,
-              type: 'image' as const,
-              opacity: 1 // Default opacity when uploading image
-            };
-            applyToMultipleKeys(updates);
-          }
-          // Update local opacity state
-          setLocalImageOpacity([1]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [applyToMultipleKeys, isMultiselect, getTargetKeys, ensureLayersExist]);
 
   // Show toolbar even when no key is selected (for layout changes, etc.)
   // if (selectedKeysCount === 0) return null;
@@ -531,8 +465,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                     setLocalKeycapColor(null);
                     setLocalLegendColor(null);
                   }
-                  setShowTextInput(false);
-                  setShowImageUpload(false);
                   setShowXSlider(false);
                   setShowYSlider(false);
                   setShowRotSlider(false);
@@ -867,8 +799,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   setShowYSlider(false);
                   setShowRotSlider(false);
                   setShowColorPicker(false);
-                  setShowTextInput(false);
-                  setShowImageUpload(false);
                   setShowSizeSlider(false);
                 }}
                 className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
@@ -883,8 +813,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   setShowXSlider(false);
                   setShowRotSlider(false);
                   setShowColorPicker(false);
-                  setShowTextInput(false);
-                  setShowImageUpload(false);
                   setShowSizeSlider(false);
                 }}
                 className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
@@ -899,8 +827,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   setShowXSlider(false);
                   setShowYSlider(false);
                   setShowColorPicker(false);
-                  setShowTextInput(false);
-                  setShowImageUpload(false);
                   setShowSizeSlider(false);
                 }}
                 className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
@@ -1127,8 +1053,6 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   size="sm"
                   onClick={() => {
                     setShowSizeSlider(!showSizeSlider);
-                    setShowTextInput(false);
-                    setShowImageUpload(false);
                     setShowColorPicker(false);
                     setShowXSlider(false);
                     setShowYSlider(false);
@@ -1139,244 +1063,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   <Maximize2 className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
                 </Button>
                 
-                {/* Text Mode Button */}
-                <Button
-                  variant={selectedLayer?.type !== 'image' ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    applyToMultipleKeys({ type: 'text' });
-                    setShowTextInput(!showTextInput);
-                    setShowImageUpload(false);
-                    setShowSizeSlider(false);
-                    setShowColorPicker(false);
-                    setShowXSlider(false);
-                    setShowYSlider(false);
-                    setShowRotSlider(false);
-                  }}
-                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
-                >
-                  <Type className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
-                </Button>
-                
-                {/* Image Mode Button */}
-                <Button
-                  variant={showImageUpload ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    // Don't change layer type immediately - only when image is uploaded
-                    setShowImageUpload(!showImageUpload);
-                    setShowTextInput(false);
-                    setShowSizeSlider(false);
-                    setShowColorPicker(false);
-                    setShowXSlider(false);
-                    setShowYSlider(false);
-                    setShowRotSlider(false);
-                    setShowIconPicker(false);
-                  }}
-                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
-                >
-                  <Image className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
-                </Button>
-
-                {/* Icon Mode Dropdown */}
-                <Popover open={showIconPicker} onOpenChange={(o) => {
-                  setShowIconPicker(o);
-                  if (o) {
-                    setShowTextInput(false);
-                    setShowImageUpload(false);
-                    setShowSizeSlider(false);
-                    setShowColorPicker(false);
-                    setShowXSlider(false);
-                    setShowYSlider(false);
-                    setShowRotSlider(false);
-                    applyToMultipleKeys({ type: 'icon' });
-                  }
-                }}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={showIconPicker ? "default" : "outline"}
-                      size="sm"
-                      className="h-9 w-9 sm:h-10 sm:w-10 p-0 border-border hover:bg-muted"
-                    >
-                      <Palette className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[740px]" align="start">
-                    <IconPicker
-                      variant="dropdown"
-                      currentIcon={selectedLayer?.type === 'icon' && typeof selectedLayer.content === 'string' 
-                        ? selectedLayer.content.includes(':') 
-                          ? selectedLayer.content.split(':')[1] 
-                          : selectedLayer.content
-                        : undefined}
-                      onIconSelect={(iconName, iconType) => {
-                        const targetKeys = getTargetKeys();
-                        const content = `${iconType || 'solid'}:${iconName}`;
-                        if (targetKeys.length > 0) {
-                          if (isMultiselect) {
-                            ensureLayersExist(targetKeys, 'icon');
-                            const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
-                            
-                            // If selectedLayerIds is provided and has items, only update those specific layers
-                            if (selectedLayerIds.length > 0 && getKeyLayers) {
-                              targetKeys.forEach(key => {
-                                const layers = getKeyLayers(key.id);
-                                layers.forEach(layer => {
-                                  if (selectedLayerIds.includes(layer.id)) {
-                                    items.push({ keyId: key.id, layerId: layer.id, updates: { content } });
-                                  }
-                                });
-                              });
-                            } else {
-                              // Fallback: update first layer of each key (old behavior)
-                            targetKeys.forEach(key => {
-                              const layers = key.layers || [];
-                              if (layers.length > 0) {
-                                items.push({ keyId: key.id, layerId: layers[0].id, updates: { content } });
-                              }
-                            });
-                            }
-                            
-                            if (onBatchLayerUpdates) onBatchLayerUpdates(items);
-                            else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, { content }));
-                          } else if (editingKey && selectedLayer) {
-                            onLegendChange(editingKey.id, selectedLayer.id, content);
-                          }
-                        }
-                        setShowIconPicker(false);
-                      }}
-                      onClose={() => setShowIconPicker(false)}
-                    />
-                  </PopoverContent>
-                </Popover>
               </div>
-              
-              {/* Text Input Panel */}
-              {showTextInput && (
-                <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[250px]">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-foreground">Text Input</Label>
-                    <Input
-                      value={localTextValue}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setLocalTextValue(newValue);
-                        
-                        const targetKeys = getTargetKeys();
-                        if (targetKeys.length > 0) {
-                          if (isMultiselect) {
-                            ensureLayersExist(targetKeys, 'text');
-                            const items: Array<{ keyId: string; layerId: string; updates: Partial<KeycapLayer> }> = [];
-                            
-                            // If selectedLayerIds is provided and has items, only update those specific layers
-                            if (selectedLayerIds.length > 0 && getKeyLayers) {
-                              targetKeys.forEach(key => {
-                                const layers = getKeyLayers(key.id);
-                                layers.forEach(layer => {
-                                  if (selectedLayerIds.includes(layer.id)) {
-                                    items.push({ keyId: key.id, layerId: layer.id, updates: { content: newValue } });
-                                  }
-                                });
-                              });
-                            } else {
-                              // Fallback: update first layer of each key (old behavior)
-                            targetKeys.forEach(key => {
-                              const layers = key.layers || [];
-                              if (layers.length > 0) {
-                                items.push({ keyId: key.id, layerId: layers[0].id, updates: { content: newValue } });
-                              }
-                            });
-                            }
-                            
-                            if (onBatchLayerUpdates) onBatchLayerUpdates(items);
-                            else items.forEach(it => onLayerUpdate(it.keyId, it.layerId, { content: newValue }));
-                          } else if (editingKey && selectedLayer) {
-                            onLegendChange(editingKey.id, selectedLayer.id, newValue);
-                          }
-                        }
-                      }}
-                      placeholder={isMultiselect ? "Enter text for all selected keys..." : "Enter key text..."}
-                      className="h-6 text-xs border-border bg-background text-foreground"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-              )}
-              
-              {/* Image Upload Panel */}
-              {showImageUpload && (
-                <div className="absolute top-full mt-1 left-0 bg-card border border-border rounded-md shadow-elevated p-3 z-50 min-w-[250px]">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-foreground">Image Upload</Label>
-                      <Input
-                        id="image-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                      <Label htmlFor="image-upload" className="cursor-pointer flex items-center gap-1 h-6 px-2 border border-border rounded-md bg-background hover:bg-muted text-xs text-foreground">
-                        <Upload className="h-3 w-3" /> Upload Image
-                      </Label>
-                      {selectedLayer?.content && selectedLayer?.type === 'image' && selectedLayer.content.trim() !== '' && (
-                        <div className="mt-1">
-                          <img src={selectedLayer.content} alt="Preview" className="w-12 h-12 object-contain border border-border rounded" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Transparency Slider */}
-                    {(selectedLayer?.type === 'image' || isMultiselect) && (
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium text-foreground">
-                          Transparency: {Math.round(localImageOpacity[0] * 100)}%
-                        </Label>
-                        <Slider
-                          value={localImageOpacity}
-                          onValueChange={handleImageOpacityChange}
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Icon Picker Panel */}
-              {showIconPicker && (
-                <div className="absolute top-full mt-1 left-0 z-50">
-                  <IconPicker
-                    currentIcon={selectedLayer?.type === 'icon' && typeof selectedLayer.content === 'string' 
-                      ? selectedLayer.content.includes(':') 
-                        ? selectedLayer.content.split(':')[1] 
-                        : selectedLayer.content
-                      : undefined}
-                    onIconSelect={(iconName) => {
-                      const targetKeys = getTargetKeys();
-                      if (targetKeys.length > 0) {
-                        if (isMultiselect) {
-                          // Ensure all keys have icon layers before applying changes
-                          ensureLayersExist(targetKeys, 'icon');
-                          targetKeys.forEach(key => {
-                            const layers = key.layers || [];
-                            if (layers.length > 0) {
-                              onLegendChange(key.id, layers[0].id, iconName);
-                            }
-                          });
-                        } else if (editingKey && selectedLayer) {
-                          onLegendChange(editingKey.id, selectedLayer.id, iconName);
-                        }
-                      }
-                      setShowIconPicker(false);
-                    }}
-                    onClose={() => setShowIconPicker(false)}
-                  />
-                </div>
-              )}
               
               {/* Size Slider Panel */}
               {showSizeSlider && (

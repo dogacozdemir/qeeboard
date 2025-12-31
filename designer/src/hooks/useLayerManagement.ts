@@ -19,7 +19,7 @@ export const useLayerManagement = (
             verticalAlignment: 'center',
             fontSize: 14,
             offsetX: 0,
-            offsetY: -4, // Move text to inner square center (4px up from keycap center)
+            offsetY: 0, // Default Y position is 0
             rotation: 0,
             mirrorX: false,
             mirrorY: false,
@@ -32,7 +32,7 @@ export const useLayerManagement = (
         return key;
       });
       
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -59,7 +59,7 @@ export const useLayerManagement = (
         return key;
       });
       
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -92,7 +92,7 @@ export const useLayerManagement = (
         return key;
       });
       
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
@@ -119,7 +119,7 @@ export const useLayerManagement = (
         return key;
       });
       
-      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}`;
+      const currentLayoutKey = `${prev.currentLayoutType}-${prev.layoutStandard}-${prev.keyboardLanguage}`;
       const updatedLayout = { ...prev.layout, keys: updatedKeys };
       return {
         ...prev,
